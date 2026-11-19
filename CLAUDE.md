@@ -4,26 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-GitPulse is in the **planning stage**: no source code exists yet, only design docs. Read these before starting work. They are the source of truth for scope and sequencing:
+Phase 0 (setup and spikes) is done. The work follows the planning docs, which are the source of truth for scope and sequencing:
 
 - `SCOPE.md`: vision, full command list, Spectre.Console feature coverage matrix, constraints, risks
 - `MVP.md`: the Milestone 1 feature set and acceptance criteria
 - `EXECUTION_PLAN.md`: architecture, milestones with task IDs (e.g. `1.5`), risk checkpoints
+- `docs/spikes.md`: Phase 0 findings about LibGit2Sharp and Spectre widget behavior. **Read it before writing renderers.**
 
-Update this file once the solution and projects exist. The `.vs/` folder points to a `GitPulse.slnx` solution, so use the `.slnx` format.
+All work happens on the `development` branch. Never commit to `main`.
+
+The current default command (`Commands/RecentCommitsCommand`) is the Phase 0 spike. Interactive mode replaces it in task 1.7.
 
 ## What it is
 
 GitPulse is a cross-platform .NET 10 console tool. It reads a local Git repository (read-only, through LibGit2Sharp) and renders an interactive terminal dashboard with Spectre.Console. A second goal is to **showcase Spectre.Console**: each feature in the SCOPE.md coverage matrix should appear on a real screen. When you add a screen, check which matrix features it is supposed to cover.
 
-## Planned commands
+## Commands
 
 ```
 dotnet build
-dotnet test
-dotnet test --filter "FullyQualifiedName~OverviewRenderer"   # single test/class
-dotnet run --project src/GitPulse -- overview --path <repo> --top 10
+dotnet test                                                       # Microsoft.Testing.Platform (see global.json)
+dotnet test --project tests/GitPulse.Tests -- --filter-method "*RepositoryReader*"   # single test/class
+dotnet test --project tests/GitPulse.Tests -- --filter-class "GitPulse.Tests.Git.RepositoryReaderTests"
+dotnet run --project src/GitPulse -- --path <repo>
+dotnet src/GitPulse/bin/Debug/net10.0/gitpulse.dll                # run the DLL directly (bypasses the apphost .exe)
 ```
+
+- The tests use **xunit.v3 on Microsoft.Testing.Platform**. VSTest-style `--filter "FullyQualifiedName~..."` does not work; pass xUnit filters after `--`.
+- `ITestOutputHelper` output is not shown by `dotnet test`. `LayoutSpikeTests` dumps its renders when `GITPULSE_SPIKE_OUT=<dir>` is set.
+- The build treats warnings as errors and enforces code style (`Directory.Build.props`). Package versions are pinned exactly in `Directory.Packages.props`, so never put a `Version` on a `PackageReference`.
+- On the dev machine, Windows Smart App Control sometimes blocks freshly built binaries ("An Application Control policy has blocked this file"). Rerun after `dotnet build --no-incremental`. Do not try to bypass the policy.
+- CI (`.github/workflows/ci.yml`) runs build, test and a smoke run on Ubuntu and Windows for pushes and PRs to `main`/`development`.
 
 ## Architecture (from EXECUTION_PLAN.md)
 
@@ -46,6 +57,9 @@ Rules:
 2. Renderers take models and **return `IRenderable`**. They never write to the console themselves. This keeps them snapshot-testable and reusable in `Layout`, `Live` and HTML export.
 3. Commands stay thin: parse settings → call services → write renderables.
 4. Every color comes from the central `Theme` class. Never hardcode colors in markup.
+5. Pass any repo-provided text (author names, paths, messages) through `Markup.Escape`, even in `BarChart` labels, which are parsed as markup too.
+
+Types in `src/GitPulse` are `internal`. The test project gets access through `InternalsVisibleTo`.
 
 ## Constraints
 
@@ -59,6 +73,6 @@ Rules:
 
 ## Working practices
 
-- One branch per task. Use conventional commits (`feat:`, `fix:`, `test:`).
+- Commit to `development` with conventional commits (`feat:`, `fix:`, `test:`, `chore:`, `ci:`).
 - Write `Analysis` tests first. Add a snapshot test for each renderer right after writing it, using a fixed fake dataset.
-- CI target: GitHub Actions on Windows + Ubuntu running `dotnet test`.
+- Git tests create throwaway repos with `Repository.Init` in a temp dir. Qualify `LibGit2Sharp.Commands`, because it clashes with the `GitPulse.Commands` namespace.
