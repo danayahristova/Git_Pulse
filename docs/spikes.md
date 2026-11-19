@@ -28,4 +28,4 @@ Test: `tests/GitPulse.Tests/Spikes/LayoutSpikeTests.cs` (asserts no throw and no
 
 - .NET 10 SDK requires opting into Microsoft.Testing.Platform for xunit.v3 (see `global.json`). VSTest packages (`Microsoft.NET.Test.Sdk`, `xunit.runner.visualstudio`, `coverlet.collector`) are not used.
 - Verify 33.x fails the build unless a SponsorCheck license property is set. It is not referenced yet, and the decision is pending before task 1.9.
-- On the dev machine, Windows Smart App Control sometimes blocks freshly built unsigned binaries (`An Application Control policy has blocked this file`). A clean rebuild (`dotnet build --no-incremental`) has resolved it so far. Running `dotnet bin/.../gitpulse.dll` avoids the apphost `.exe`.
+- On the dev machine, Windows Smart App Control blocks freshly built unsigned binaries (`An Application Control policy has blocked this file`, Code Integrity events 3033/3077). Development runs in **WSL Ubuntu** instead (see CLAUDE.md). CI covers Windows.

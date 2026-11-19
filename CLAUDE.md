@@ -33,7 +33,7 @@ dotnet src/GitPulse/bin/Debug/net10.0/gitpulse.dll                # run the DLL 
 - The tests use **xunit.v3 on Microsoft.Testing.Platform**. VSTest-style `--filter "FullyQualifiedName~..."` does not work; pass xUnit filters after `--`.
 - `ITestOutputHelper` output is not shown by `dotnet test`. `LayoutSpikeTests` dumps its renders when `GITPULSE_SPIKE_OUT=<dir>` is set.
 - The build treats warnings as errors and enforces code style (`Directory.Build.props`). Package versions are pinned exactly in `Directory.Packages.props`, so never put a `Version` on a `PackageReference`.
-- On the dev machine, Windows Smart App Control sometimes blocks freshly built binaries ("An Application Control policy has blocked this file"). Rerun after `dotnet build --no-incremental`. Do not try to bypass the policy.
+- **On the dev machine, build and run in WSL, not Windows.** Windows Smart App Control is on, and it blocks freshly built unsigned binaries ("An Application Control policy has blocked this file", 0x800711C7). Do not try to bypass or disable it. The WSL Ubuntu distro has the .NET 10 SDK (apt `dotnet-sdk-10.0`). Run commands as `wsl.exe -d Ubuntu -- bash -lc 'cd "/mnt/d/Projects/Console app projects/GitPulse" && dotnet test'`, or put them in a script file, because PowerShell mangles nested quotes. WSL builds of the `/mnt/...` checkout go to `artifacts-wsl/` (see `Directory.Build.props`), so they never clash with Windows `bin/obj`. In Visual Studio, the **WSL** launch profile runs and debugs the app inside WSL.
 - CI (`.github/workflows/ci.yml`) runs build, test and a smoke run on Ubuntu and Windows for pushes and PRs to `main`/`development`.
 
 ## Architecture (from EXECUTION_PLAN.md)
