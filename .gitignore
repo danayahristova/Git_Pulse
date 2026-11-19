@@ -1,0 +1,55 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rtifacts/
+[Ll]og/
+[Ll]ogs/
+*.nupkg
+*.snupkg
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.DotSettings.user
+
+# Test results and coverage
+[Tt]est[Rr]esult*/
+*.trx
+coverage*.json
+coverage*.xml
+*.coverage
+*.coveragexml
+
+# Verify snapshot testing: commit *.verified.*, ignore *.received.*
+*.received.*
+
+# NuGet
+**/packages/*
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+
+# GitPulse scan cache
+.gitpulse/
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
