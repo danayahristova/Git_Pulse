@@ -8,8 +8,8 @@
 │                                                                              │
 │ Speed up the [scheduler] queue                                               │
 │                                                                              │
-│ The queue was sorted on every insert.                                        │
-│ Now it is a heap.                                                            │
+│   The queue was sorted on every insert.                                      │
+│   Now it is a heap.                                                          │
 └──────────────────────────────────────────────────────────────────────────────┘
 
 ┌───┬──────────────────────────────────────────────────────┬────────┬─────────┐

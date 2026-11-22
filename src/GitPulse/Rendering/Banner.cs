@@ -17,6 +17,9 @@ internal static class Banner
             ? new FigletText("GitPulse").Color(Theme.Primary)
             : new Markup(Theme.Title("GitPulse"));
 
-        return new Rows(title, new Markup(Theme.Dim(Tagline)), new Text(string.Empty));
+        return new Rows(
+            Align.Center(title),
+            Align.Center(new Markup(Theme.Dim(Tagline))),
+            new Text(string.Empty));
     }
 }

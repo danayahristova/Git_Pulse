@@ -6,7 +6,7 @@ using Spectre.Console.Cli;
 namespace GitPulse.Commands;
 
 /// <summary>Options shared by every command that analyzes a repository.</summary>
-internal class RepoSettings : CommandSettings
+internal class RepoSettings : GlobalSettings
 {
     public const int MinTop = 1;
     public const int MaxTop = 100;
