@@ -1,0 +1,11 @@
+                       Top 6 of 6 changed files
+┌───┬─────────────────────────────────────────────┬─────────┬────────┐
+│ # │ File                                        │ Commits │  Churn │
+├───┼─────────────────────────────────────────────┼─────────┼────────┤
+│ 1 │ src/Core/Engine/Scheduler.cs                │     188 │ 16,322 │
+│ 2 │ src/Core/Engine/RenderPipeline.cs           │     140 │ 10,300 │
+│ 3 │ tests/Core.Tests/SchedulerTests.cs          │      58 │  4,600 │
+│ 4 │ …/Folder/Structure/OverviewCommand.cs       │      63 │  3,000 │
+│ 5 │ README.md                                   │      97 │  1,840 │
+│ 6 │ [docs]/guide.md                             │      12 │    320 │
+└───┴─────────────────────────────────────────────┴─────────┴────────┘

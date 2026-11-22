@@ -1,0 +1,6 @@
+┌────────────────────────────┐
+│ Terminal too narrow        │
+│ Needs 40+ columns, has 30. │
+│ Widen the window and try   │
+│ again.                     │
+└────────────────────────────┘

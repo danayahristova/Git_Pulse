@@ -4,16 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phase 0 (setup and spikes) is done. The work follows the planning docs, which are the source of truth for scope and sequencing:
+Phase 0 is done, and Milestone 1 (MVP) tasks 1.1–1.9 are implemented on `feature/milestone-1`. The work follows the planning docs, which are the source of truth for scope and sequencing:
 
 - `SCOPE.md`: vision, full command list, Spectre.Console feature coverage matrix, constraints, risks
 - `MVP.md`: the Milestone 1 feature set and acceptance criteria
 - `EXECUTION_PLAN.md`: architecture, milestones with task IDs (e.g. `1.5`), risk checkpoints
 - `docs/spikes.md`: Phase 0 findings about LibGit2Sharp and Spectre widget behavior. **Read it before writing renderers.**
 
-All work happens on the `development` branch. Never commit to `main`.
-
-The current default command (`Commands/RecentCommitsCommand`) is the Phase 0 spike. Interactive mode replaces it in task 1.7.
+Never commit to `main`. The user merges feature branches into `main` through pull requests. Work on the current feature branch, or make a new one from `main` after a merge.
 
 ## What it is
 
@@ -32,6 +30,9 @@ dotnet src/GitPulse/bin/Debug/net10.0/gitpulse.dll                # run the DLL 
 
 - The tests use **xunit.v3 on Microsoft.Testing.Platform**. VSTest-style `--filter "FullyQualifiedName~..."` does not work; pass xUnit filters after `--`.
 - `ITestOutputHelper` output is not shown by `dotnet test`. `LayoutSpikeTests` dumps its renders when `GITPULSE_SPIKE_OUT=<dir>` is set.
+- **Snapshot tests** (`tests/.../Rendering/Snapshot.cs`) are a small file-based helper. They do not use Verify, whose license check is an open decision for the user. A mismatch writes `Snapshots/<name>.received.txt` and fails. After reviewing the output, accept it with `GITPULSE_UPDATE_SNAPSHOTS=1 dotnet test`. Read the new `.verified.txt` files before committing; never accept a snapshot blindly.
+- **Interactive tests:** push arrow keys as `new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false)`. `PushKey(ConsoleKey.DownArrow)` carries `'('` as its character, and the menu's search box treats it as typed text.
+- Exit codes are defined in `GitPulseApp`: 0 ok, 1 expected error (`GitPulseException`), 2 usage error, 70 unexpected error, 130 cancelled.
 - The build treats warnings as errors and enforces code style (`Directory.Build.props`). Package versions are pinned exactly in `Directory.Packages.props`, so never put a `Version` on a `PackageReference`.
 - **On the dev machine, build and run in WSL, not Windows.** Windows Smart App Control is on, and it blocks freshly built unsigned binaries ("An Application Control policy has blocked this file", 0x800711C7). Do not try to bypass or disable it. The WSL Ubuntu distro has the .NET 10 SDK (apt `dotnet-sdk-10.0`). Run commands as `wsl.exe -d Ubuntu -- bash -lc 'cd "/mnt/d/Projects/Console app projects/GitPulse" && dotnet test'`, or put them in a script file, because PowerShell mangles nested quotes. WSL builds of the `/mnt/...` checkout go to `artifacts-wsl/` (see `Directory.Build.props`), so they never clash with Windows `bin/obj`. In Visual Studio, the **WSL** launch profile runs and debugs the app inside WSL.
 - CI (`.github/workflows/ci.yml`) runs build, test and a smoke run on Ubuntu and Windows for pushes and PRs to `main`/`development`.
@@ -49,8 +50,14 @@ src/GitPulse/
   Interactive/   Menu loop, prompts
 tests/GitPulse.Tests/
   Analysis/      Unit tests
-  Rendering/     Snapshot tests (Spectre.Console.Testing TestConsole + Verify.Xunit)
+  Rendering/     Snapshot tests (Spectre.Console.Testing TestConsole + Snapshot.cs)
+  Cli/           End-to-end tests (Spectre.Console.Cli.Testing CommandAppTester, simulated keys)
+  Git/           Tests on throwaway repos (TempRepo)
 ```
+
+How a run flows: `Program` → `GitPulseApp.Configure` (commands and exception handler) → a command → `Commands/ScanDisplay` (Status spinner while opening, then Progress while `Git/RepositoryScanner` reads the repo in three stages and reports through `IScanProgress`) → `Analysis/RepoAnalyzer` produces `RepoStats` → a renderer returns an `IRenderable` for the current width. Commands get `IAnsiConsole` injected by Spectre.Console.Cli. Do not use the static `AnsiConsole` in commands, or tests can't capture the output.
+
+Responsive rendering: renderers take the console width and use `Rendering/Breakpoints`: below 80 columns they switch to compact mode, below 40 to a "too narrow" message. The overview `Layout` is wrapped in `FixedHeight`, because a `Layout` otherwise fills the whole console height.
 
 Rules:
 1. Data flows one way: `Git` → `Analysis` → `Models` → `Rendering`.
