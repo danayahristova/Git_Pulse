@@ -6,6 +6,28 @@
     <AssemblyName>gitpulse</AssemblyName>
   </PropertyGroup>
 
+  <!-- dotnet tool package (task 5.1): dotnet pack src/GitPulse -c Release -o artifacts/packages -->
+  <PropertyGroup>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>gitpulse</ToolCommandName>
+    <PackageId>GitPulse</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Danaya Hristova</Authors>
+    <Description>Turn any local Git repository into an interactive terminal dashboard: authors, hotspots, languages, an activity heatmap, commit details, a live watch mode and HTML reports. Read-only, no network. Built with Spectre.Console.</Description>
+    <PackageTags>git;cli;terminal;dashboard;statistics;spectre-console;dotnet-tool</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/danayahristova/Git_Pulse</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/danayahristova/Git_Pulse.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <!-- Let the tool run on newer .NET versions too, not only .NET 10. -->
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Spectre.Console" />
     <PackageReference Include="Spectre.Console.Cli" />

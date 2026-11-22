@@ -64,5 +64,23 @@ jobs:
           # expected failures must exit non-zero
           if gp report --html "$RUNNER_TEMP/report.html"; then echo "overwrite without --force should fail"; exit 1; fi
           if gp watch; then echo "watch without a terminal should fail"; exit 1; fi
+
+      - name: Pack, install and run the dotnet tool
+        shell: bash
+        run: |
+          set -x
+          dotnet pack src/GitPulse --configuration Release --no-build --output "$RUNNER_TEMP/packages"
+          dotnet tool install GitPulse --tool-path "$RUNNER_TEMP/tools" --add-source "$RUNNER_TEMP/packages" --version "$(dotnet msbuild src/GitPulse -getProperty:Version)"
+          "$RUNNER_TEMP/tools/gitpulse" --version
+          "$RUNNER_TEMP/tools/gitpulse" scan --no-cache
+          "$RUNNER_TEMP/tools/gitpulse" overview --no-color
+
+      - name: Upload the package
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitpulse-package
+          path: ${{ runner.temp }}/packages/*.nupkg
+          if-no-files-found: error
           if gp authors --top 0; then echo "--top 0 should fail"; exit 1; fi
           if gp overview --path "$RUNNER_TEMP"; then echo "non-repo should fail"; exit 1; fi
