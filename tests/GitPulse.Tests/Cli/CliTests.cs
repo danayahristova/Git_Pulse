@@ -109,6 +109,18 @@ public sealed class CliTests : IDisposable
     }
 
     [Fact]
+    public void Heatmap_shows_activity()
+    {
+        SeedHistory();
+
+        var result = Run("heatmap", "--path", _repo.Dir);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("3 commits on 3 days", result.Output);
+        Assert.Contains("Commits by time of day", result.Output);
+    }
+
+    [Fact]
     public void Scan_reports_what_it_read()
     {
         SeedHistory();

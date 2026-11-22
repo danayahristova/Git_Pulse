@@ -36,4 +36,7 @@ internal sealed record RepoStats(
     RepoSummary Summary,
     IReadOnlyList<AuthorStats> Authors,
     IReadOnlyList<FileChurn> Hotspots,
-    IReadOnlyList<LanguageShare> Languages);
+    IReadOnlyList<LanguageShare> Languages,
+    ActivityStats Activity,
+    Heatmap Heatmap,
+    ChurnNode FileTree);

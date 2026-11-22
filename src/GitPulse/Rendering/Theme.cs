@@ -16,6 +16,9 @@ internal static class Theme
     public static readonly Color Warning = Color.Gold1;
     public static readonly Color Error = Color.Red1;
 
+    /// <summary>Text color on highlighted (colored-background) cells.</summary>
+    public static readonly Color Background = Color.Black;
+
     /// <summary>Series colors for charts, in order. Wraps around if there are more items.</summary>
     public static readonly IReadOnlyList<Color> Palette =
     [
@@ -28,6 +31,28 @@ internal static class Theme
     ];
 
     public static Color Series(int index) => Palette[index % Palette.Count];
+
+    /// <summary>Heatmap colors for levels 0 (no commits) to 4 (busiest).</summary>
+    public static readonly IReadOnlyList<Color> HeatLevels =
+    [
+        Color.Grey23,
+        Color.DarkGreen,
+        Color.Green4,
+        Color.Green3,
+        Color.Green1,
+    ];
+
+    /// <summary>Heatmap glyphs for levels 0–4, used when the terminal has no colors.</summary>
+    public static readonly IReadOnlyList<string> HeatGlyphs = ["·", "░", "▒", "▓", "█"];
+
+    /// <summary>Color for a share of the total churn: hot (red) to cold (grey).</summary>
+    public static Color Heat(double share) => share switch
+    {
+        >= 0.25 => Deleted,
+        >= 0.10 => Warning,
+        >= 0.03 => Primary,
+        _ => Muted,
+    };
 
     public static Style Border => new(Muted);
 

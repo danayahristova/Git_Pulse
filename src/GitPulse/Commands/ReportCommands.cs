@@ -45,6 +45,12 @@ internal sealed class HotspotsCommand(IAnsiConsole console) : ReportCommand(cons
         HotspotsRenderer.Render(stats, settings.Top, width);
 }
 
+internal sealed class HeatmapCommand(IAnsiConsole console) : ReportCommand(console)
+{
+    protected override IRenderable Render(RepoStats stats, RepoSettings settings, int width) =>
+        ActivityRenderer.Render(stats, width);
+}
+
 /// <summary>Scans and prints a one-line result. (Caching the scan comes in milestone 4.)</summary>
 internal sealed class ScanCommand(IAnsiConsole console) : Command<RepoSettings>
 {

@@ -18,6 +18,7 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
         Overview,
         Authors,
         Hotspots,
+        Activity,
         RowCount,
         Exit,
     }
@@ -45,7 +46,7 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            if (view is MenuItem.Overview or MenuItem.Authors or MenuItem.Hotspots)
+            if (view is MenuItem.Overview or MenuItem.Authors or MenuItem.Hotspots or MenuItem.Activity)
             {
                 console.Clear();
                 console.Write(Render(view, stats, top, console.Profile.Width));
@@ -73,6 +74,7 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
     {
         MenuItem.Authors => AuthorsRenderer.Render(stats, top, width),
         MenuItem.Hotspots => HotspotsRenderer.Render(stats, top, width),
+        MenuItem.Activity => ActivityRenderer.Render(stats, width),
         _ => OverviewRenderer.Render(stats, width),
     };
 
@@ -89,12 +91,13 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
                 MenuItem.Overview => "Overview dashboard",
                 MenuItem.Authors => "Top authors",
                 MenuItem.Hotspots => "Most-changed files",
+                MenuItem.Activity => "Activity heatmap",
                 MenuItem.RowCount => $"Rows to show ({top})",
                 MenuItem.Exit => "Exit",
                 _ => item.ToString(),
             });
 
-        prompt.AddChoices(MenuItem.Overview, MenuItem.Authors, MenuItem.Hotspots, MenuItem.RowCount, MenuItem.Exit);
+        prompt.AddChoices(MenuItem.Overview, MenuItem.Authors, MenuItem.Hotspots, MenuItem.Activity, MenuItem.RowCount, MenuItem.Exit);
         return prompt;
     }
 
