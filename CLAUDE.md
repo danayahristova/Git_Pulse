@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phase 0 and Milestones 1–2 are merged into `main`. Milestone 3 (detail and filtering) is in progress on `feature/milestone-3`. The work follows the planning docs, which are the source of truth for scope and sequencing:
+Phase 0 and Milestones 1–3 are merged into `main`. Milestone 4 (cache, watch, HTML report, performance) is in progress on `feature/milestone-4`. The work follows the planning docs, which are the source of truth for scope and sequencing:
 
 - `SCOPE.md`: vision, full command list, Spectre.Console feature coverage matrix, constraints, risks
 - `MVP.md`: the Milestone 1 feature set and acceptance criteria
@@ -87,3 +87,10 @@ Types in `src/GitPulse` are `internal`. The test project gets access through `In
 - Commit to `development` with conventional commits (`feat:`, `fix:`, `test:`, `chore:`, `ci:`).
 - Write `Analysis` tests first. Add a snapshot test for each renderer right after writing it, using a fixed fake dataset.
 - Git tests create throwaway repos with `Repository.Init` in a temp dir. Qualify `LibGit2Sharp.Commands`, because it clashes with the `GitPulse.Commands` namespace.
+
+## Milestone 4 notes
+
+- **Scan cache** (`Caching/ScanCache.cs`): per-commit file stats keyed by SHA, one JSON file per repository in the user cache folder (`CacheLocation`). It is never written inside the repository. The test project points `GITPULSE_CACHE_DIR` at a temp folder in `TestSetup` (a module initializer), so tests never touch the real cache. The Git layer only sees `ICommitStatsCache`.
+- **Parallel first scans**: `RepositoryScanner` diffs uncached commits with up to 8 workers, each with **its own** `RepositoryReader`, because LibGit2Sharp's `Repository` is not thread-safe. `IScanProgress.Advanced` is then called from several threads.
+- **`watch`** (`Interactive/WatchCommand.cs`): `WatchSession` takes an `IChangeSignal` and a rescan function, so tests drive it with fake keys and signals. Inside `Live`, read keys with `console.Input.IsKeyAvailable()`/`ReadKey`; never use prompts. Scan with `ScanDisplay.ScanQuietly` (no `Progress`, which can't run inside `Live`).
+- **HTML export**: never use `Recorder.ExportHtml()` for repo text. It doesn't HTML-escape. Use `HtmlReport.Record`, which uses `SafeHtmlEncoder`. Regenerate the committed sample with `GITPULSE_WRITE_SAMPLE_REPORT=$PWD/docs/sample-report.html dotnet test -- --filter-method "*Writes_the_sample_report*"`.

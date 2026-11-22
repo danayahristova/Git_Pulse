@@ -6,7 +6,7 @@ GitPulse is a cross-platform command-line tool that turns any local Git reposito
 
 GitPulse is **read-only**. It never writes to your repository and never touches the network.
 
-> **Status:** Milestones 1 (MVP) and 2 (visual depth) are done; Milestone 3 (detail and filtering) is in progress. The commands below work; later milestones add the rest (see [Roadmap](#roadmap)).
+> **Status:** Milestones 1–3 are done; Milestone 4 (live view, export, performance) is in progress. The commands below work; later milestones add the rest (see [Roadmap](#roadmap)).
 
 ## What it looks like
 
@@ -69,6 +69,8 @@ gitpulse commit HEAD~2        # one commit: header, message, changed files, colo
 gitpulse commit 1a2b3c4 --raw # the same commit as JSON
 gitpulse commit               # pick a commit from recent history (interactive terminals)
 gitpulse overview --author ada --branch main --since 2026-01-01 --until 2026-06-30
+gitpulse watch                # live overview that refreshes when new commits arrive (q quits, r refreshes)
+gitpulse report --html report.html   # overview, activity, authors and hotspots in one HTML file
 ```
 
 GitPulse only reads repositories on your machine. To look at one from GitHub, clone it first (a normal, full clone).
@@ -83,6 +85,9 @@ Options for `scan`, `overview`, `authors`, `hotspots`, `heatmap` and the interac
 | `-b, --branch <NAME>` | Only commits reachable from this local branch; repeat for several | `HEAD` |
 | `-a, --author <TEXT>` | Only commits whose author name or email contains this text (any case); repeat for several | everyone |
 | `-t, --top <N>` | Rows in tables (1–100) | 10 |
+| `--no-cache` | Don't read or write the scan cache | cache on |
+
+Extra options: `watch --interval <SECONDS>` (how often to check for changes, 1–60, default 2); `report --html <FILE>` (required) and `report --force` (overwrite without asking; otherwise GitPulse asks in a terminal and refuses without one).
 
 Options for `commit [REVISION]`:
 
@@ -108,6 +113,12 @@ How the numbers are counted:
 - Days, weekdays and hours use each commit's own time zone (the author's local time). Weeks start on Monday.
 - The heatmap ends on the day of the last commit, so older repositories still show their activity. Its 4 shades are relative to the busiest day shown.
 
+## Scan cache
+
+The first scan of a repository computes line counts for every commit; later scans reuse them and only diff new commits. xUnit (3,283 commits) takes about 3.7 s the first time and 0.7 s after that. The cache is one JSON file per repository in your user cache folder: `~/.cache/gitpulse` on Linux and WSL, `%LOCALAPPDATA%\GitPulse\Cache` on Windows, `~/Library/Caches/GitPulse` on macOS. Set `GITPULSE_CACHE_DIR` to put it somewhere else. It is never written inside the repository. Deleting it is always safe; it is rebuilt on the next scan. `--no-cache` skips it.
+
+A sample HTML report made from made-up data is in [docs/sample-report.html](docs/sample-report.html).
+
 ## Building
 
 Requires the .NET 10 SDK.
@@ -126,8 +137,8 @@ Rendering is covered by snapshot tests: each renderer's output is compared with 
 |-----------|------|
 | M1 MVP (done) | `scan`, `overview`, `authors`, `hotspots`, interactive menu |
 | M2 Visual depth (done) | `heatmap`, calendar view, file tree, commits by weekday/hour |
-| M3 Detail and filtering (in progress) | `commit <sha>` with diff, links, JSON output, branch/author filters |
-| M4 Live and export | scan cache, `watch` live dashboard, `report --html` |
+| M3 Detail and filtering (done) | `commit <sha>` with diff, links, JSON output, branch/author filters |
+| M4 Live and export (in progress) | scan cache, `watch` live dashboard, `report --html` |
 | M5 Release | `dotnet tool` package |
 
 ## Project docs
