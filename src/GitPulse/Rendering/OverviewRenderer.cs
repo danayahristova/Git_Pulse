@@ -120,7 +120,7 @@ internal static class OverviewRenderer
 
     private static Panel Header(RepoSummary s)
     {
-        var range = s.Since is { } since ? $"since {Format.Date(since)}" : "all history";
+        var range = s.Filter.Describe();
         var text =
             $"{Theme.Title(s.Name)}  " +
             Theme.Dim($"{Format.Plural(s.Commits, "commit")} · {Format.Plural(s.Authors, "author")} · {range}");

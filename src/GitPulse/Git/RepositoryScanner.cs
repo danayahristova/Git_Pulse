@@ -27,14 +27,20 @@ internal interface IScanProgress
 /// <summary>Reads a whole repository into a <see cref="RepoSnapshot"/>.</summary>
 internal static class RepositoryScanner
 {
+    /// <param name="filter">
+    /// Dates and branches limit what is read. Authors are kept in the snapshot and applied by the
+    /// analysis, so they can change without scanning again.
+    /// </param>
     /// <exception cref="EmptyRepositoryException">The repository has no commits.</exception>
-    /// <exception cref="NoCommitsInRangeException"><paramref name="since"/> filters out every commit.</exception>
+    /// <exception cref="NoCommitsInRangeException">The dates/branches filter out every commit.</exception>
+    /// <exception cref="BranchNotFoundException">A branch in the filter does not exist.</exception>
     public static RepoSnapshot Scan(
         RepositoryReader reader,
-        DateOnly? since = null,
+        ScanFilter? filter = null,
         IScanProgress? progress = null,
         CancellationToken cancellationToken = default)
     {
+        filter ??= ScanFilter.None;
         if (reader.IsEmpty)
         {
             throw new EmptyRepositoryException(reader.SearchedPath);
@@ -42,15 +48,12 @@ internal static class RepositoryScanner
 
         // 1. Walk history (cheap) so the diff stage knows its total.
         progress?.Started(ScanStage.ReadingCommits, null);
-        DateTimeOffset? sinceTime = since is { } d
-            ? new DateTimeOffset(d.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local)) // local midnight
-            : null;
-        var commits = reader.ListCommits(sinceTime, () => progress?.Advanced(ScanStage.ReadingCommits));
+        var commits = reader.ListCommits(filter, () => progress?.Advanced(ScanStage.ReadingCommits));
         progress?.Completed(ScanStage.ReadingCommits);
 
-        if (commits.Count == 0 && since is { } s)
+        if (commits.Count == 0)
         {
-            throw new NoCommitsInRangeException(s);
+            throw new NoCommitsInRangeException((filter with { Authors = null }).Describe());
         }
 
         // 2. Diff stats per commit (the expensive part).
@@ -85,6 +88,6 @@ internal static class RepositoryScanner
             files,
             reader.BranchCount,
             reader.TagCount,
-            since);
+            filter);
     }
 }

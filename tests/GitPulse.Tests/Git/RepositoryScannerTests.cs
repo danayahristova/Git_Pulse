@@ -1,4 +1,5 @@
 using GitPulse.Git;
+using GitPulse.Models;
 using static GitPulse.Tests.Fakes;
 
 namespace GitPulse.Tests.Git;
@@ -57,7 +58,7 @@ public sealed class RepositoryScannerTests : IDisposable
         _repo.Commit("New", "Ada", Day(6, 1), ("a.txt", "b\n"));
 
         using var reader = RepositoryReader.Open(_repo.Dir);
-        var snapshot = RepositoryScanner.Scan(reader, since: new DateOnly(2026, 3, 1), cancellationToken: Ct);
+        var snapshot = RepositoryScanner.Scan(reader, new ScanFilter(Since: new DateOnly(2026, 3, 1)), cancellationToken: Ct);
 
         Assert.Equal("New", Assert.Single(snapshot.Commits).MessageShort);
     }
@@ -70,7 +71,7 @@ public sealed class RepositoryScannerTests : IDisposable
         using var reader = RepositoryReader.Open(_repo.Dir);
 
         Assert.Throws<NoCommitsInRangeException>(() =>
-            RepositoryScanner.Scan(reader, since: new DateOnly(2026, 6, 1), cancellationToken: Ct));
+            RepositoryScanner.Scan(reader, new ScanFilter(Since: new DateOnly(2026, 6, 1)), cancellationToken: Ct));
     }
 
     [Fact]

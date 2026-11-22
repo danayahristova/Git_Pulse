@@ -132,25 +132,37 @@ internal static class LanguageDetector
 /// <summary>Turns a raw <see cref="RepoSnapshot"/> into the <see cref="RepoStats"/> renderers use.</summary>
 internal static class RepoAnalyzer
 {
+    /// <exception cref="NoCommitsByAuthorException">The author filter matches none of the scanned commits.</exception>
     public static RepoStats Analyze(RepoSnapshot snapshot)
     {
-        var authors = AuthorAnalyzer.Compute(snapshot.Commits);
+        // Dates and branches were applied by the scan; authors are applied here, so the
+        // interactive menu can change them without reading the repository again.
+        var filter = snapshot.Filter;
+        IReadOnlyList<CommitRecord> commits = filter.AuthorList.Count == 0
+            ? snapshot.Commits
+            : snapshot.Commits.Where(c => filter.MatchesAuthor(c.AuthorName, c.AuthorEmail)).ToList();
+        if (commits.Count == 0 && snapshot.Commits.Count > 0)
+        {
+            throw new NoCommitsByAuthorException(filter.Describe());
+        }
+
+        var authors = AuthorAnalyzer.Compute(commits);
         var summary = new RepoSummary(
             snapshot.Name,
-            snapshot.Commits.Count,
+            commits.Count,
             authors.Count,
-            snapshot.Commits.Count > 0 ? snapshot.Commits.Min(c => c.When) : default,
-            snapshot.Commits.Count > 0 ? snapshot.Commits.Max(c => c.When) : default,
+            commits.Count > 0 ? commits.Min(c => c.When) : default,
+            commits.Count > 0 ? commits.Max(c => c.When) : default,
             snapshot.BranchCount,
             snapshot.TagCount,
             snapshot.Files.Count,
-            snapshot.Since);
+            filter);
 
-        var hotspots = ChurnAnalyzer.Compute(snapshot.Commits);
-        var activity = ActivityAnalyzer.Compute(snapshot.Commits);
+        var hotspots = ChurnAnalyzer.Compute(commits);
+        var activity = ActivityAnalyzer.Compute(commits);
 
         // The heatmap ends on the last commit's day, so old repositories still show their activity.
-        var end = snapshot.Commits.Count > 0
+        var end = commits.Count > 0
             ? DateOnly.FromDateTime(summary.LastCommit.DateTime)
             : DateOnly.FromDateTime(DateTime.Today);
 

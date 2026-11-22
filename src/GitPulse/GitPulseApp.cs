@@ -35,6 +35,12 @@ internal static class GitPulseApp
             .WithDescription("Most-changed files (lines added + deleted) and a folder tree.")
             .WithExample("hotspots", "--since", "2026-06-01", "--top", "15");
 
+        config.AddCommand<CommitCommand>("commit")
+            .WithDescription("One commit in detail: message, changed files and diff. Without a revision, pick one.")
+            .WithExample("commit", "HEAD~1")
+            .WithExample("commit", "1a2b3c4", "--raw")
+            .WithExample("commit");
+
         config.AddCommand<HeatmapCommand>("heatmap")
             .WithDescription("Activity heatmap of the last year, plus commits by weekday and time of day.")
             .WithExample("heatmap", "--path", "../other-repo");

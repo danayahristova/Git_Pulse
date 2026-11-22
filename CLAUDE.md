@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phase 0 and Milestone 1 (MVP) are merged into `main`. Milestone 2 (visual depth) is in progress on `feature/milestone-2`. The work follows the planning docs, which are the source of truth for scope and sequencing:
+Phase 0 and Milestones 1–2 are merged into `main`. Milestone 3 (detail and filtering) is in progress on `feature/milestone-3`. The work follows the planning docs, which are the source of truth for scope and sequencing:
 
 - `SCOPE.md`: vision, full command list, Spectre.Console feature coverage matrix, constraints, risks
 - `MVP.md`: the Milestone 1 feature set and acceptance criteria
@@ -24,14 +24,14 @@ dotnet build
 dotnet test                                                       # Microsoft.Testing.Platform (see global.json)
 dotnet test --project tests/GitPulse.Tests -- --filter-method "*RepositoryReader*"   # single test/class
 dotnet test --project tests/GitPulse.Tests -- --filter-class "GitPulse.Tests.Git.RepositoryReaderTests"
-dotnet run --project src/GitPulse -- --path <repo>
+dotnet run --project src/GitPulse --no-launch-profile -- --path <repo>   # without --no-launch-profile, dotnet run prints a launch-settings line to stdout
 dotnet src/GitPulse/bin/Debug/net10.0/gitpulse.dll                # run the DLL directly (bypasses the apphost .exe)
 ```
 
 - The tests use **xunit.v3 on Microsoft.Testing.Platform**. VSTest-style `--filter "FullyQualifiedName~..."` does not work; pass xUnit filters after `--`.
 - `ITestOutputHelper` output is not shown by `dotnet test`. `LayoutSpikeTests` dumps its renders when `GITPULSE_SPIKE_OUT=<dir>` is set.
 - **Snapshot tests** (`tests/.../Rendering/Snapshot.cs`) are a small file-based helper. They do not use Verify, whose license check is an open decision for the user. A mismatch writes `Snapshots/<name>.received.txt` and fails. After reviewing the output, accept it with `GITPULSE_UPDATE_SNAPSHOTS=1 dotnet test`. Read the new `.verified.txt` files before committing; never accept a snapshot blindly.
-- **Interactive tests:** push arrow keys as `new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false)`. `PushKey(ConsoleKey.DownArrow)` carries `'('` as its character, and the menu's search box treats it as typed text.
+- **Interactive tests:** push arrow keys as `new ConsoleKeyInfo('\0', ConsoleKey.DownArrow, false, false, false)`. `PushKey(ConsoleKey.DownArrow)` carries `'('` as its character, and the menu's search box treats it as typed text. Pick menu items by typing into the search box (`Choose("Top authors")`), not by position, so adding menu items does not break tests.
 - Exit codes are defined in `GitPulseApp`: 0 ok, 1 expected error (`GitPulseException`), 2 usage error, 70 unexpected error, 130 cancelled.
 - The build treats warnings as errors and enforces code style (`Directory.Build.props`). Package versions are pinned exactly in `Directory.Packages.props`, so never put a `Version` on a `PackageReference`.
 - **On the dev machine, build and run in WSL, not Windows.** Windows Smart App Control is on, and it blocks freshly built unsigned binaries ("An Application Control policy has blocked this file", 0x800711C7). Do not try to bypass or disable it. The WSL Ubuntu distro has the .NET 10 SDK (apt `dotnet-sdk-10.0`). Run commands as `wsl.exe -d Ubuntu -- bash -lc 'cd "/mnt/d/Projects/Console app projects/GitPulse" && dotnet test'`, or put them in a script file, because PowerShell mangles nested quotes. WSL builds of the `/mnt/...` checkout go to `artifacts-wsl/` (see `Directory.Build.props`), so they never clash with Windows `bin/obj`. In Visual Studio, the **WSL** launch profile runs and debugs the app inside WSL.
@@ -58,6 +58,8 @@ tests/GitPulse.Tests/
 How a run flows: `Program` → `GitPulseApp.Configure` (commands and exception handler) → a command → `Commands/ScanDisplay` (Status spinner while opening, then Progress while `Git/RepositoryScanner` reads the repo in three stages and reports through `IScanProgress`) → `Analysis/RepoAnalyzer` produces `RepoStats` → a renderer returns an `IRenderable` for the current width. Commands get `IAnsiConsole` injected by Spectre.Console.Cli. Do not use the static `AnsiConsole` in commands, or tests can't capture the output.
 
 Responsive rendering: renderers take the console width and switch on `Breakpoints.Of(width)` → `WidthClass` (Wide 120+, Medium 100+, Narrow 80+, Compact 40+, TooNarrow). Wide adds the overview calendar; Compact stacks panels. The overview `Layout` is wrapped in `FixedHeight`, because a `Layout` otherwise fills the whole console height.
+
+Filters: `Models/ScanFilter` (since, until, branches, authors). Dates and branches limit the scan (`RepositoryReader.ListCommits`); authors are applied in `RepoAnalyzer.Analyze`, so the interactive menu can change them without rescanning. Machine-readable output (`commit --raw`) must bypass Spectre wrapping and spinners: write to `console.Profile.Out.Writer` when not a terminal, and open the repo without `Status`.
 
 Color-only widgets need a text fallback: a `Canvas` paints background colors, so `HeatmapGrid` checks `options.Ansi` and draws shade glyphs when ANSI is off (redirected output, snapshot tests). Snapshot tests render with no ANSI and no colors; test the colored path separately with `EmitAnsiSequences()`. In Spectre 0.57 `Canvas` pixels are half-blocks (1 column × half a line); `PixelWidth` is obsolete.
 

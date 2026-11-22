@@ -13,39 +13,46 @@ namespace GitPulse.Commands;
 /// </summary>
 internal static class ScanDisplay
 {
-    public static RepoStats Run(IAnsiConsole console, RepoSettings settings, CancellationToken cancellationToken)
-    {
-        var reader = console.Status()
+    public static RepoStats Run(IAnsiConsole console, RepoSettings settings, CancellationToken cancellationToken) =>
+        RepoAnalyzer.Analyze(Scan(console, settings.Path, settings.ToFilter(), cancellationToken));
+
+    /// <summary>Opens the repository with a spinner (also used by <c>commit</c>, which does not scan).</summary>
+    public static RepositoryReader Open(IAnsiConsole console, string path) =>
+        console.Status()
             .Spinner(Spinner.Known.Dots)
             .SpinnerStyle(new Style(Theme.Primary))
-            .Start("Opening repository…", _ => RepositoryReader.Open(settings.Path));
+            .Start("Opening repository…", _ => RepositoryReader.Open(path));
 
-        using (reader)
-        {
-            RepoSnapshot? snapshot = null;
+    /// <summary>
+    /// Scans without analyzing. The interactive mode keeps the snapshot so it can re-apply
+    /// author filters without reading the repository again.
+    /// </summary>
+    public static RepoSnapshot Scan(IAnsiConsole console, string path, ScanFilter filter, CancellationToken cancellationToken)
+    {
+        using var reader = Open(console, path);
+        RepoSnapshot? snapshot = null;
 
-            console.Progress()
-                .AutoClear(false)
-                .HideCompleted(false)
-                .Columns(
-                    new SpinnerColumn(Spinner.Known.Dots) { Style = new Style(Theme.Primary) },
-                    new TaskDescriptionColumn { Alignment = Justify.Left },
-                    new ProgressBarColumn
-                    {
-                        CompletedStyle = new Style(Theme.Primary),
-                        FinishedStyle = new Style(Theme.Added),
-                    },
-                    new PercentageColumn(),
-                    new CountColumn(),
-                    new ElapsedTimeColumn { Style = new Style(Theme.Muted) })
-                .Start(ctx =>
+        console.Progress()
+            .AutoClear(false)
+            .HideCompleted(false)
+            .Columns(
+                new SpinnerColumn(Spinner.Known.Dots) { Style = new Style(Theme.Primary) },
+                new TaskDescriptionColumn { Alignment = Justify.Left },
+                new ProgressBarColumn
                 {
-                    var progress = new SpectreScanProgress(ctx);
-                    snapshot = RepositoryScanner.Scan(reader, settings.Since, progress, cancellationToken);
-                });
+                    CompletedStyle = new Style(Theme.Primary),
+                    FinishedStyle = new Style(Theme.Added),
+                },
+                new PercentageColumn(),
+                new CountColumn(),
+                new ElapsedTimeColumn { Style = new Style(Theme.Muted) })
+            .Start(ctx =>
+            {
+                var progress = new SpectreScanProgress(ctx);
+                snapshot = RepositoryScanner.Scan(reader, filter, progress, cancellationToken);
+            });
 
-            return RepoAnalyzer.Analyze(snapshot!);
-        }
+        return snapshot!;
     }
 
     /// <summary>Bridges the Git layer's <see cref="IScanProgress"/> to Spectre progress tasks.</summary>

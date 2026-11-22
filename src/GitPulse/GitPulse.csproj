@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Spectre.Console" />
     <PackageReference Include="Spectre.Console.Cli" />
+    <PackageReference Include="Spectre.Console.Json" />
     <PackageReference Include="LibGit2Sharp" />
   </ItemGroup>
 

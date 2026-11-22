@@ -72,6 +72,32 @@ public sealed class RendererSnapshotTests
         Assert.Contains("No commits in this period.", output);
     }
 
+    [Theory]
+    [InlineData(120)]
+    [InlineData(80)]
+    [InlineData(50)]
+    public void Commit(int width) => Check(CommitRenderer.Render(SampleCommit(), width), width, $"commit-{width}");
+
+    [Fact]
+    public void Commit_without_a_remote_has_no_link() =>
+        Check(CommitRenderer.Render(SampleCommit(webUrl: null), 100), 100, "commit-no-link");
+
+    [Fact]
+    public void Commit_json_is_valid_and_complete()
+    {
+        using var json = System.Text.Json.JsonDocument.Parse(CommitJson.Serialize(SampleCommit()));
+        var root = json.RootElement;
+
+        Assert.Equal("Speed up the [scheduler] queue", root.GetProperty("subject").GetString());
+        Assert.Equal("bot[merge-queue]", root.GetProperty("committer").GetProperty("name").GetString());
+        Assert.Equal(4, root.GetProperty("stats").GetProperty("files").GetInt32());
+        Assert.Equal("renamed", root.GetProperty("files")[1].GetProperty("status").GetString());
+        Assert.Equal("src/Core/Engine/OldHeap.cs", root.GetProperty("files")[1].GetProperty("oldPath").GetString());
+        Assert.False(root.GetProperty("files")[0].TryGetProperty("oldPath", out _)); // nulls are left out
+        Assert.True(root.GetProperty("files")[2].GetProperty("binary").GetBoolean());
+        Assert.StartsWith("https://github.com/", root.GetProperty("url").GetString());
+    }
+
     [Fact]
     public void Authors_respects_top() =>
         Check(AuthorsRenderer.Render(Stats, top: 2, width: 100), 100, "authors-top2");

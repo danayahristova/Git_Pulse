@@ -56,14 +56,59 @@ internal sealed class TempRepo : IDisposable
         }
     }
 
+    /// <summary>Creates <paramref name="branch"/> at HEAD, runs <paramref name="onBranch"/> on it, then switches back (no merge).</summary>
+    public void OnBranch(string branch, Action onBranch)
+    {
+        string mainName;
+        using (var repo = new Repository(Dir))
+        {
+            mainName = repo.Head.FriendlyName;
+            LibGit2Sharp.Commands.Checkout(repo, repo.CreateBranch(branch));
+        }
+
+        onBranch();
+
+        using (var repo = new Repository(Dir))
+        {
+            LibGit2Sharp.Commands.Checkout(repo, repo.Branches[mainName]);
+        }
+    }
+
     public void Tag(string name)
     {
         using var repo = new Repository(Dir);
         repo.ApplyTag(name);
     }
 
+    public void AddRemote(string name, string url)
+    {
+        using var repo = new Repository(Dir);
+        repo.Network.Remotes.Add(name, url);
+    }
+
+    public void Delete(string path)
+    {
+        using var repo = new Repository(Dir);
+        File.Delete(Path.Combine(Dir, path));
+        LibGit2Sharp.Commands.Remove(repo, path);
+    }
+
+    public void Rename(string from, string to)
+    {
+        using var repo = new Repository(Dir);
+        LibGit2Sharp.Commands.Move(repo, from, to);
+    }
+
+    /// <summary>Commits whatever is staged (after <see cref="Delete"/> / <see cref="Rename"/>).</summary>
+    public Commit CommitStaged(string message, string author, DateTimeOffset when)
+    {
+        using var repo = new Repository(Dir);
+        var sig = Signature(author, when);
+        return repo.Commit(message, sig, sig);
+    }
+
     private static Signature Signature(string author, DateTimeOffset when) =>
-        new(author, $"{author.ToLowerInvariant()}@example.com", when);
+        new(author, $"{author.Split(' ')[0].ToLowerInvariant()}@example.com", when); // "Ada Lovelace" -> ada@example.com
 
     public void Dispose()
     {

@@ -8,6 +8,7 @@
     <!-- Spectre.Console is pre-1.0 and Spectre.Console.Cli is versioned separately: pin both. -->
     <PackageVersion Include="Spectre.Console" Version="0.57.2" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.57.2" />
+    <PackageVersion Include="Spectre.Console.Json" Version="0.57.2" />
     <PackageVersion Include="LibGit2Sharp" Version="0.32.0" />
   </ItemGroup>
 

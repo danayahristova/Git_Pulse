@@ -90,6 +90,41 @@ internal static class Fakes
             [5, 2, 1, 0, 0, 1, 4, 12, 45, 98, 120, 110, 70, 95, 118, 125, 112, 99, 80, 60, 48, 33, 30, 19]);
     }
 
+    /// <summary>A fixed commit for the commit-view snapshots: every file status, a long line and a cut-off diff.</summary>
+    public static CommitDetail SampleCommit(string? webUrl = "https://github.com/owner/sample-repo/commit/0123456789abcdef0123456789abcdef01234567") => new(
+        Sha: "0123456789abcdef0123456789abcdef01234567",
+        AuthorName: "Ada Lovelace",
+        AuthorEmail: "ada@example.com",
+        AuthorWhen: new DateTimeOffset(2026, 11, 18, 14, 5, 0, TimeSpan.FromHours(2)),
+        CommitterName: "bot[merge-queue]",
+        CommitterEmail: "bot@example.com",
+        CommitterWhen: new DateTimeOffset(2026, 11, 18, 15, 0, 0, TimeSpan.Zero),
+        Message: "Speed up the [scheduler] queue\n\nThe queue was sorted on every insert.\nNow it is a heap.",
+        Parents: ["fedcba9876543210fedcba9876543210fedcba98"],
+        Files:
+        [
+            new("src/Core/Engine/Scheduler.cs", null, FileChangeKind.Modified, 3, 2, false,
+            [
+                new(DiffLineKind.Hunk, "@@ -10,6 +10,7 @@ internal sealed class Scheduler"),
+                new(DiffLineKind.Context, "    private readonly object _gate = new();"),
+                new(DiffLineKind.Deleted, "    private readonly List<Job> _queue = [];"),
+                new(DiffLineKind.Added, "    private readonly PriorityQueue<Job, int> _queue = new();"),
+                new(DiffLineKind.Added, "    // [markup] like this must not be parsed: " + new string('x', 120)),
+                new(DiffLineKind.Deleted, "\t_queue.Sort();"),
+                new(DiffLineKind.Added, "\t_queue.Enqueue(job, job.Priority);"),
+                new(DiffLineKind.Context, "}"),
+            ], HiddenLines: 0),
+            new("src/Core/Engine/Heap.cs", "src/Core/Engine/OldHeap.cs", FileChangeKind.Renamed, 1, 1, false,
+            [
+                new(DiffLineKind.Hunk, "@@ -1,3 +1,3 @@"),
+                new(DiffLineKind.Deleted, "namespace Old;"),
+                new(DiffLineKind.Added, "namespace Core;"),
+            ], HiddenLines: 42),
+            new("docs/logo.png", null, FileChangeKind.Added, 0, 0, true, [], 0),
+            new("legacy/Queue.cs", null, FileChangeKind.Deleted, 0, 12, false, [], HiddenLines: 13),
+        ],
+        WebUrl: webUrl);
+
     private static RepoStats SampleStatsCore(IReadOnlyList<FileChurn> hotspots) => new(
         new RepoSummary(
             Name: "sample-repo",
@@ -100,7 +135,7 @@ internal static class Fakes
             Branches: 4,
             Tags: 12,
             Files: 342,
-            Since: null),
+            Filter: ScanFilter.None),
         Authors:
         [
             new("Ada Lovelace", "ada@example.com", 612, 48210, 20133, Day(1, 3), Day(11, 18)),
