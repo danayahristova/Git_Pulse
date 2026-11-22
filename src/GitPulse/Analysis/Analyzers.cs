@@ -146,10 +146,21 @@ internal static class RepoAnalyzer
             snapshot.Files.Count,
             snapshot.Since);
 
+        var hotspots = ChurnAnalyzer.Compute(snapshot.Commits);
+        var activity = ActivityAnalyzer.Compute(snapshot.Commits);
+
+        // The heatmap ends on the last commit's day, so old repositories still show their activity.
+        var end = snapshot.Commits.Count > 0
+            ? DateOnly.FromDateTime(summary.LastCommit.DateTime)
+            : DateOnly.FromDateTime(DateTime.Today);
+
         return new RepoStats(
             summary,
             authors,
-            ChurnAnalyzer.Compute(snapshot.Commits),
-            LanguageDetector.Detect(snapshot.Files));
+            hotspots,
+            LanguageDetector.Detect(snapshot.Files),
+            activity,
+            HeatmapBuilder.Build(activity.CommitsPerDay, end),
+            FileTreeBuilder.Build(snapshot.Name, hotspots));
     }
 }
