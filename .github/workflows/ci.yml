@@ -41,4 +41,13 @@ jobs:
         run: dotnet test --configuration Release --no-build
 
       - name: Smoke run (gitpulse on its own repo)
-        run: dotnet run --project src/GitPulse --configuration Release --no-build
+        shell: bash
+        run: |
+          gp() { dotnet run --project src/GitPulse --configuration Release --no-build -- "$@"; }
+          gp                      # default command: prints the overview when not interactive
+          gp scan
+          gp authors --top 5
+          gp hotspots --top 5
+          # expected failures must exit non-zero
+          if gp authors --top 0; then echo "--top 0 should fail"; exit 1; fi
+          if gp overview --path "$RUNNER_TEMP"; then echo "non-repo should fail"; exit 1; fi
