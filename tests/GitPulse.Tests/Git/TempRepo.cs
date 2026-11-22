@@ -108,7 +108,7 @@ internal sealed class TempRepo : IDisposable
     }
 
     private static Signature Signature(string author, DateTimeOffset when) =>
-        new(author, $"{author.ToLowerInvariant()}@example.com", when);
+        new(author, $"{author.Split(' ')[0].ToLowerInvariant()}@example.com", when); // "Ada Lovelace" -> ada@example.com
 
     public void Dispose()
     {

@@ -133,7 +133,8 @@ internal sealed class RepositoryReader : IDisposable
         {
             var (status, oldPath) = kinds.TryGetValue(entry.Path, out var k) ? k : (entry.Status, entry.OldPath);
             var maxLines = Math.Min(limits.MaxLinesPerFile, budget);
-            var (lines, hidden) = entry.IsBinaryComparison
+            // No diff wanted at all (--no-diff, --raw): don't parse it.
+            var (lines, hidden) = entry.IsBinaryComparison || limits.MaxLinesPerFile == 0
                 ? ([], 0)
                 : DiffParser.Parse(entry.Patch, maxLines);
             budget -= lines.Count;

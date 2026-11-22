@@ -49,6 +49,12 @@ jobs:
           gp authors --top 5
           gp hotspots --top 5
           gp heatmap
+          gp commit HEAD
+          gp commit HEAD~1 --no-diff
+          gp authors --since 2026-01-01 --until 2099-12-31 --author a
+          # --raw must be valid JSON and nothing else
+          gp commit HEAD --raw > "$RUNNER_TEMP/commit.json"
+          pwsh -NoProfile -Command "Get-Content -Raw '$RUNNER_TEMP/commit.json' | ConvertFrom-Json | Out-Null"
           # expected failures must exit non-zero
           if gp authors --top 0; then echo "--top 0 should fail"; exit 1; fi
           if gp overview --path "$RUNNER_TEMP"; then echo "non-repo should fail"; exit 1; fi
