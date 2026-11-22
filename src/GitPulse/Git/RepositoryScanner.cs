@@ -39,7 +39,8 @@ internal static class RepositoryScanner
         ScanFilter? filter = null,
         IScanProgress? progress = null,
         CancellationToken cancellationToken = default,
-        ICommitStatsCache? cache = null)
+        ICommitStatsCache? cache = null,
+        int maxDegreeOfParallelism = 0)
     {
         filter ??= ScanFilter.None;
         if (reader.IsEmpty)
@@ -57,16 +58,38 @@ internal static class RepositoryScanner
             throw new NoCommitsInRangeException(filter.WithoutAuthors().Describe());
         }
 
-        // 2. Diff stats per commit (the expensive part; cached commits are nearly free).
+        // 2. Diff stats per commit (the expensive part). Merges and cached commits are free;
+        //    the rest are diffed, in parallel when there are many.
         progress?.Started(ScanStage.ComputingDiffStats, commits.Count);
-        var records = new List<CommitRecord>(commits.Count);
-        foreach (var commit in commits)
+        var stats = new IReadOnlyList<FileChange>?[commits.Count];
+        var toDiff = new List<int>();
+        for (var i = 0; i < commits.Count; i++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            records.Add(reader.ReadStats(commit, cache));
+            if (RepositoryReader.IsMerge(commits[i]))
+            {
+                stats[i] = []; // like git log --numstat: merges add no line counts
+            }
+            else if (cache is not null && cache.TryGet(commits[i].Sha, out var cached))
+            {
+                stats[i] = cached;
+            }
+            else
+            {
+                toDiff.Add(i);
+                continue;
+            }
+
             progress?.Advanced(ScanStage.ComputingDiffStats);
         }
 
+        Diff(reader, commits, toDiff, stats, progress, WorkersFor(toDiff.Count, maxDegreeOfParallelism), cancellationToken);
+
+        foreach (var i in toDiff)
+        {
+            cache?.Put(commits[i].Sha, stats[i]!);
+        }
+
+        var records = commits.Select((c, i) => RepositoryReader.ToRecord(c, stats[i]!)).ToList();
         progress?.Completed(ScanStage.ComputingDiffStats);
 
         // 3. Files in HEAD, with sizes, for language share.
@@ -90,5 +113,56 @@ internal static class RepositoryScanner
             reader.BranchCount,
             reader.TagCount,
             filter);
+    }
+
+    /// <summary>Below this many commits to diff, starting workers costs more than it saves.</summary>
+    internal const int ParallelThreshold = 200;
+
+    /// <summary>
+    /// 0 = automatic: one worker for small scans, otherwise up to 8 (diffing is I/O and
+    /// decompression bound; more workers stop helping). A positive value is used as given (tests).
+    /// </summary>
+    internal static int WorkersFor(int commitsToDiff, int requested) =>
+        requested > 0
+            ? Math.Max(1, Math.Min(requested, commitsToDiff))
+            : commitsToDiff < ParallelThreshold ? 1 : Math.Clamp(Environment.ProcessorCount, 1, 8);
+
+    private static void Diff(
+        RepositoryReader reader,
+        IReadOnlyList<LibGit2Sharp.Commit> commits,
+        List<int> toDiff,
+        IReadOnlyList<FileChange>?[] stats,
+        IScanProgress? progress,
+        int workers,
+        CancellationToken cancellationToken)
+    {
+        if (workers <= 1)
+        {
+            foreach (var i in toDiff)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                stats[i] = reader.ComputeFileStats(commits[i]);
+                progress?.Advanced(ScanStage.ComputingDiffStats);
+            }
+
+            return;
+        }
+
+        // LibGit2Sharp's Repository is not thread-safe: every worker opens its own and diffs every
+        // n-th commit by SHA. Results land in distinct array slots, so no locking is needed there.
+        var shas = toDiff.Select(i => commits[i].Sha).ToArray();
+        var gitDirectory = reader.GitDirectory;
+        var options = new ParallelOptions { MaxDegreeOfParallelism = workers, CancellationToken = cancellationToken };
+
+        Parallel.For(0, workers, options, worker =>
+        {
+            using var own = RepositoryReader.Open(gitDirectory);
+            for (var k = worker; k < shas.Length; k += workers)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                stats[toDiff[k]] = own.ComputeFileStats(shas[k]);
+                progress?.Advanced(ScanStage.ComputingDiffStats);
+            }
+        });
     }
 }

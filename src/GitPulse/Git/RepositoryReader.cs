@@ -245,11 +245,8 @@ internal sealed class RepositoryReader : IDisposable
     /// </summary>
     internal CommitRecord ReadStats(Commit commit, ICommitStatsCache? cache = null)
     {
-        var parents = commit.Parents.ToList();
-        var isMerge = parents.Count > 1;
-
         IReadOnlyList<FileChange> files = [];
-        if (!isMerge)
+        if (!IsMerge(commit))
         {
             if (cache is not null && cache.TryGet(commit.Sha, out var cached))
             {
@@ -257,21 +254,38 @@ internal sealed class RepositoryReader : IDisposable
             }
             else
             {
-                using var patch = _repo.Diff.Compare<Patch>(parents.FirstOrDefault()?.Tree, commit.Tree);
-                files = patch.Select(f => new FileChange(f.Path, f.LinesAdded, f.LinesDeleted)).ToList();
+                files = ComputeFileStats(commit);
                 cache?.Put(commit.Sha, files);
             }
         }
 
-        return new CommitRecord(
-            commit.Sha,
-            commit.Author.Name,
-            commit.Author.Email,
-            commit.Author.When,
-            commit.MessageShort,
-            isMerge,
-            files);
+        return ToRecord(commit, files);
     }
+
+    internal static bool IsMerge(Commit commit) => commit.Parents.Skip(1).Any();
+
+    /// <summary>Per-file line counts against the first parent (the expensive part of a scan).</summary>
+    internal IReadOnlyList<FileChange> ComputeFileStats(Commit commit)
+    {
+        using var patch = _repo.Diff.Compare<Patch>(commit.Parents.FirstOrDefault()?.Tree, commit.Tree);
+        return patch.Select(f => new FileChange(f.Path, f.LinesAdded, f.LinesDeleted)).ToList();
+    }
+
+    /// <summary>
+    /// Same, by SHA. Used by scan workers, which each open their own reader:
+    /// LibGit2Sharp's <c>Repository</c> must not be shared between threads.
+    /// </summary>
+    internal IReadOnlyList<FileChange> ComputeFileStats(string sha) =>
+        ComputeFileStats(_repo.Lookup<Commit>(sha) ?? throw new CommitNotFoundException(sha));
+
+    internal static CommitRecord ToRecord(Commit commit, IReadOnlyList<FileChange> files) => new(
+        commit.Sha,
+        commit.Author.Name,
+        commit.Author.Email,
+        commit.Author.When,
+        commit.MessageShort,
+        IsMerge(commit),
+        files);
 
     /// <summary>Convenience: commits with stats, newest first.</summary>
     public IEnumerable<CommitRecord> ReadCommits(ScanFilter? filter = null, int? max = null)
