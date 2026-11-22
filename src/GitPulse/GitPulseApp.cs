@@ -14,9 +14,18 @@ internal static class GitPulseApp
     public const int ExitUnexpectedError = 70;
     public const int ExitCancelled = 130;
 
+    /// <summary>The package version, e.g. "1.0.0" (without the "+commit" build suffix).</summary>
+    public static string Version { get; } =
+        (typeof(GitPulseApp).Assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion ?? "0.0.0")
+        .Split('+')[0];
+
     public static void Configure(IConfigurator config)
     {
         config.SetApplicationName("gitpulse");
+        config.SetApplicationVersion(Version);
         config.SetExceptionHandler(HandleException);
 
         config.AddCommand<ScanCommand>("scan")
@@ -54,6 +63,20 @@ internal static class GitPulseApp
         config.AddCommand<HeatmapCommand>("heatmap")
             .WithDescription("Activity heatmap of the last year, plus commits by weekday and time of day.")
             .WithExample("heatmap", "--path", "../other-repo");
+    }
+
+    /// <summary>
+    /// The console every command writes to. With <c>--no-color</c> (or <c>NO_COLOR</c>, which Spectre
+    /// already honours) colors are off everywhere, and color-only widgets such as the heatmap switch to
+    /// their text fallback. Created before parsing, so it also covers help and error output.
+    /// </summary>
+    public static IAnsiConsole CreateConsole(IReadOnlyList<string> args)
+    {
+        var noColor = args.Contains(GlobalSettings.NoColorOption, StringComparer.OrdinalIgnoreCase);
+        return AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            ColorSystem = noColor ? ColorSystemSupport.NoColors : ColorSystemSupport.Detect,
+        });
     }
 
     /// <summary>

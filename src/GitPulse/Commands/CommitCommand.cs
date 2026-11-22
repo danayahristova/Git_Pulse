@@ -7,7 +7,7 @@ using Spectre.Console.Cli;
 
 namespace GitPulse.Commands;
 
-internal sealed class CommitSettings : CommandSettings
+internal sealed class CommitSettings : GlobalSettings
 {
     [CommandArgument(0, "[REVISION]")]
     [Description("Commit to show: a SHA (or its start), HEAD~N, a branch or a tag. Leave out to pick one.")]

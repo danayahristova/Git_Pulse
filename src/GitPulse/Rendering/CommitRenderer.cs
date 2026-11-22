@@ -75,7 +75,8 @@ internal static class CommitRenderer
         if (c.Body.Length > 0)
         {
             content.Add(new Text(string.Empty));
-            content.Add(new Text(c.Body));
+            // Indented under the subject, like git log.
+            content.Add(new Padder(new Text(c.Body), new Padding(2, 0, 0, 0)));
         }
 
         return new Panel(new Rows(content))
