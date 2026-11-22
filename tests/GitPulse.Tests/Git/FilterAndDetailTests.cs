@@ -71,6 +71,43 @@ public sealed class ScanFilterOnRealReposTests : IDisposable
     }
 
     [Fact]
+    public void Ticked_author_does_not_match_a_similar_email()
+    {
+        _repo.Commit("By Ada", "Ada", Day(1, 1), ("a.txt", "a\n"));
+        _repo.Commit("By Nada", "Nada", Day(1, 2), ("b.txt", "b\n")); // nada@example.com contains ada@example.com
+
+        var stats = RepoAnalyzer.Analyze(Scan(new ScanFilter(ExactAuthors: ["ada@example.com"])));
+
+        Assert.Equal("Ada", Assert.Single(stats.Authors).Name);
+    }
+
+    [Fact]
+    public void Recent_commits_stops_after_the_requested_number()
+    {
+        for (var day = 1; day <= 5; day++)
+        {
+            _repo.Commit($"Commit {day}", "Ada", Day(1, day), ("a.txt", $"{day}\n"));
+        }
+
+        using var reader = RepositoryReader.Open(_repo.Dir);
+        var walked = 0;
+        var firstTwo = reader.EnumerateCommits().Select(c => { walked++; return c; }).Take(2).ToList();
+
+        Assert.Equal(["Commit 5", "Commit 4"], firstTwo.Select(c => c.MessageShort));
+        Assert.Equal(2, walked); // the walk stopped; it did not read all 5 commits first
+        Assert.Equal(3, reader.RecentCommits(3).Count);
+    }
+
+    [Fact]
+    public void Unknown_branch_fails_immediately_even_for_a_lazy_walk()
+    {
+        _repo.Commit("Base", "Ada", Day(1, 1), ("a.txt", "a\n"));
+        using var reader = RepositoryReader.Open(_repo.Dir);
+
+        Assert.Throws<BranchNotFoundException>(() => reader.EnumerateCommits(new ScanFilter(Branches: ["nope"])));
+    }
+
+    [Fact]
     public void Author_filter_matching_nobody_is_a_friendly_error()
     {
         _repo.Commit("By Ada", "Ada", Day(1, 1), ("a.txt", "a\n"));

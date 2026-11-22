@@ -162,7 +162,7 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
                     MenuItem.Hotspots => "Most-changed files",
                     MenuItem.Activity => "Activity heatmap",
                     MenuItem.CommitDetails => "Commit details…",
-                    MenuItem.FilterAuthors => "Filter by author…" + Count(_filter.AuthorList.Count),
+                    MenuItem.FilterAuthors => "Filter by author…" + Count(_filter.AuthorList.Count + _filter.ExactAuthorList.Count),
                     MenuItem.FilterBranches => "Filter by branch…" + Count(_filter.BranchList.Count),
                     MenuItem.DateRange => "Date range…" + (_filter.Since is null && _filter.Until is null ? string.Empty : Theme.Dim(" (set)")),
                     MenuItem.ClearFilters => "Clear filters",
@@ -245,15 +245,16 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
                 .UseConverter(a => $"{Markup.Escape(a.Name)} {Theme.Dim($"<{a.Email}> · {Format.Plural(a.Commits, "commit")}")}")
                 .AddChoices(everyone);
 
-            foreach (var author in everyone.Where(a => _filter.AuthorList.Contains(Key(a), StringComparer.OrdinalIgnoreCase)))
+            foreach (var author in everyone.Where(a => _filter.ExactAuthorList.Contains(Key(a), StringComparer.OrdinalIgnoreCase)))
             {
                 prompt.Select(author);
             }
 
             var chosen = _console.Prompt(prompt).Select(Key).ToList();
-            Apply(_filter with { Authors = chosen.Count == 0 ? null : chosen });
+            // Ticked authors match exactly (a typed --author keeps matching by "contains").
+            Apply(_filter with { ExactAuthors = chosen.Count == 0 ? null : chosen });
 
-            static string Key(AuthorStats a) => string.IsNullOrWhiteSpace(a.Email) ? a.Name : a.Email;
+            static string Key(AuthorStats a) => ScanFilter.AuthorKey(a.Name, a.Email);
         }
 
         private void FilterBranches()

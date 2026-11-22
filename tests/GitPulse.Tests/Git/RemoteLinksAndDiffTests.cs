@@ -141,6 +141,36 @@ public sealed class ScanFilterTests
         Assert.Equal(expected, filter.MatchesAuthor("Ada Lovelace", "ada@example.com"));
     }
 
+    [Theory]
+    [InlineData("ada@example.com", true)]
+    [InlineData("ADA@EXAMPLE.COM", true)]
+    [InlineData("nada@example.com", false)]          // contains "ada@example.com", but is someone else
+    [InlineData("ada@example.com.au", false)]
+    public void Ticked_authors_match_exactly(string email, bool expected)
+    {
+        var filter = new ScanFilter(ExactAuthors: ["ada@example.com"]);
+        Assert.Equal(expected, filter.MatchesAuthor("Someone", email));
+    }
+
+    [Fact]
+    public void Typed_and_ticked_authors_combine()
+    {
+        var filter = new ScanFilter(Authors: ["lovelace"], ExactAuthors: ["ada@example.com"]);
+
+        Assert.True(filter.MatchesAuthor("Ada Lovelace", "ada@example.com"));
+        Assert.False(filter.MatchesAuthor("Ada Byron", "ada@example.com")); // not "lovelace"
+        Assert.Equal("authors lovelace, ada@example.com", filter.Describe());
+    }
+
+    [Fact]
+    public void Exact_author_without_email_matches_by_name()
+    {
+        var filter = new ScanFilter(ExactAuthors: ["Anon"]);
+
+        Assert.True(filter.MatchesAuthor("anon", ""));
+        Assert.False(filter.MatchesAuthor("Anonymous", ""));
+    }
+
     [Fact]
     public void No_author_filter_matches_everyone()
     {

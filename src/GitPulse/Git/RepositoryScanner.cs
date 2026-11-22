@@ -53,7 +53,7 @@ internal static class RepositoryScanner
 
         if (commits.Count == 0)
         {
-            throw new NoCommitsInRangeException((filter with { Authors = null }).Describe());
+            throw new NoCommitsInRangeException(filter.WithoutAuthors().Describe());
         }
 
         // 2. Diff stats per commit (the expensive part).

@@ -68,36 +68,8 @@ internal sealed class RepositoryReader : IDisposable
     internal IReadOnlyList<Commit> ListCommits(ScanFilter? scanFilter = null, Action? onCommit = null)
     {
         var result = new List<Commit>();
-        if (IsEmpty)
+        foreach (var commit in EnumerateCommits(scanFilter))
         {
-            return result;
-        }
-
-        scanFilter ??= ScanFilter.None;
-        var since = scanFilter.Since is { } s ? StartOfDay(s) : (DateTimeOffset?)null;
-        var untilExclusive = scanFilter.Until is { } u ? StartOfDay(u.AddDays(1)) : (DateTimeOffset?)null;
-
-        var filter = new CommitFilter { SortBy = CommitSortStrategies.Time };
-        if (scanFilter.BranchList.Count > 0)
-        {
-            filter.IncludeReachableFrom = scanFilter.BranchList.Select(ResolveBranch).ToList();
-        }
-
-        foreach (var commit in _repo.Commits.QueryBy(filter))
-        {
-            // Sorted by committer time, so once that is older than "since" we can stop.
-            // Author time decides inclusion (rebased commits keep their author date).
-            if (since is { } from && commit.Committer.When < from)
-            {
-                break;
-            }
-
-            var when = commit.Author.When;
-            if ((since is { } start && when < start) || (untilExclusive is { } end && when >= end))
-            {
-                continue;
-            }
-
             result.Add(commit);
             onCommit?.Invoke();
         }
@@ -105,9 +77,56 @@ internal sealed class RepositoryReader : IDisposable
         return result;
     }
 
-    /// <summary>The most recent commits from HEAD, for the commit picker.</summary>
+    /// <summary>
+    /// Same as <see cref="ListCommits"/>, but lazy: stopping early (e.g. <c>Take(300)</c>) stops the
+    /// history walk, so a large repository is not read to the end. Branches are checked right away.
+    /// </summary>
+    /// <exception cref="BranchNotFoundException">A branch in the filter does not exist.</exception>
+    internal IEnumerable<Commit> EnumerateCommits(ScanFilter? scanFilter = null)
+    {
+        if (IsEmpty)
+        {
+            return [];
+        }
+
+        scanFilter ??= ScanFilter.None;
+        var filter = new CommitFilter { SortBy = CommitSortStrategies.Time };
+        if (scanFilter.BranchList.Count > 0)
+        {
+            // Resolved here, not inside the iterator, so a bad branch fails immediately.
+            filter.IncludeReachableFrom = scanFilter.BranchList.Select(ResolveBranch).ToList();
+        }
+
+        return Walk(_repo.Commits.QueryBy(filter), scanFilter);
+
+        static IEnumerable<Commit> Walk(IEnumerable<Commit> commits, ScanFilter scanFilter)
+        {
+            var since = scanFilter.Since is { } s ? StartOfDay(s) : (DateTimeOffset?)null;
+            var untilExclusive = scanFilter.Until is { } u ? StartOfDay(u.AddDays(1)) : (DateTimeOffset?)null;
+
+            foreach (var commit in commits)
+            {
+                // Sorted by committer time, so once that is older than "since" we can stop.
+                // Author time decides inclusion (rebased commits keep their author date).
+                if (since is { } from && commit.Committer.When < from)
+                {
+                    yield break;
+                }
+
+                var when = commit.Author.When;
+                if ((since is { } start && when < start) || (untilExclusive is { } end && when >= end))
+                {
+                    continue;
+                }
+
+                yield return commit;
+            }
+        }
+    }
+
+    /// <summary>The most recent commits from HEAD, for the commit picker. Reads only what it returns.</summary>
     public IReadOnlyList<CommitHeader> RecentCommits(int max) =>
-        ListCommits().Take(max)
+        EnumerateCommits().Take(max)
             .Select(c => new CommitHeader(c.Sha, c.Author.Name, c.Author.When, c.MessageShort))
             .ToList();
 
@@ -232,7 +251,7 @@ internal sealed class RepositoryReader : IDisposable
     /// <summary>Convenience: commits with stats, newest first.</summary>
     public IEnumerable<CommitRecord> ReadCommits(ScanFilter? filter = null, int? max = null)
     {
-        var commits = ListCommits(filter);
+        var commits = EnumerateCommits(filter);
         return (max is { } m ? commits.Take(m) : commits).Select(ReadStats);
     }
 
