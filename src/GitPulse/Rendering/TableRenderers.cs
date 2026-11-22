@@ -14,7 +14,10 @@ internal static class AuthorsRenderer
             return Widgets.TooNarrow(width);
         }
 
-        var compact = Breakpoints.IsCompact(width);
+        // 100+: all columns. 80-99: no "First". Under 80: no dates at all.
+        var widthClass = Breakpoints.Of(width);
+        var showFirst = widthClass >= WidthClass.Medium;
+        var showLast = widthClass >= WidthClass.Narrow;
         var shown = stats.Authors.Take(top).ToList();
 
         var table = new Table()
@@ -26,9 +29,13 @@ internal static class AuthorsRenderer
             .AddColumn(new TableColumn(Header("Added")).RightAligned())
             .AddColumn(new TableColumn(Header("Deleted")).RightAligned());
 
-        if (!compact)
+        if (showFirst)
         {
             table.AddColumn(new TableColumn(Header("First")));
+        }
+
+        if (showLast)
+        {
             table.AddColumn(new TableColumn(Header("Last")));
         }
 
@@ -43,9 +50,13 @@ internal static class AuthorsRenderer
                 new Markup(Theme.DeletedText(a.LinesDeleted)),
             };
 
-            if (!compact)
+            if (showFirst)
             {
                 cells.Add(new Markup(Markup.Escape(Format.Date(a.FirstCommit))));
+            }
+
+            if (showLast)
+            {
                 cells.Add(new Markup(Markup.Escape(Format.Date(a.LastCommit))));
             }
 
@@ -58,7 +69,10 @@ internal static class AuthorsRenderer
     internal static Markup Header(string text) => new(Markup.Escape(text), Theme.TableHeader);
 }
 
-/// <summary>The most-changed files table. Long paths are shortened by <see cref="TextPath"/>.</summary>
+/// <summary>
+/// The most-changed files table (long paths shortened by <see cref="TextPath"/>),
+/// followed by a folder <see cref="Tree"/> colored by churn.
+/// </summary>
 internal static class HotspotsRenderer
 {
     public static IRenderable Render(RepoStats stats, int top, int width)
@@ -105,7 +119,9 @@ internal static class HotspotsRenderer
             table.AddRow(cells);
         }
 
-        return table;
+        // The table shows single files; the tree shows where in the repo the churn is.
+        var tree = Widgets.Panel(ChurnTreeRenderer.Render(stats.FileTree, width), "Changes by folder");
+        return new Rows(table, new Text(string.Empty), tree);
     }
 
     /// <summary>TextPath takes the raw path (it is not parsed as markup) and shortens it to fit.</summary>

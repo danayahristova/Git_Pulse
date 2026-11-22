@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Spectre.Console;
 using Spectre.Console.Rendering;
 using Spectre.Console.Testing;
 
@@ -14,9 +15,11 @@ internal static class Snapshot
 {
     public static string Render(IRenderable renderable, int width, int height = 40)
     {
-        var console = new TestConsole().Width(width);
+        // Plain text, like redirected output: no ANSI, no colors.
+        var console = new TestConsole().Width(width).Colors(ColorSystem.NoColors);
         console.Profile.Height = height;
         console.Profile.Capabilities.Unicode = true;
+        console.Profile.Capabilities.Ansi = false;
         console.Write(renderable);
         return console.Output;
     }

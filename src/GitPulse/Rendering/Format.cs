@@ -25,6 +25,35 @@ internal static class Format
         return text.Length <= max ? text : string.Concat(text.AsSpan(0, max - 1), "…");
     }
 
+    /// <summary>
+    /// Shortens a slash-separated path from the left ("…/Folder/Structure/"), keeping whole
+    /// trailing segments, like <c>TextPath</c> does in tables.
+    /// </summary>
+    public static string TruncatePath(string path, int max)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(max, 4);
+        if (path.Length <= max)
+        {
+            return path;
+        }
+
+        var parts = path.TrimEnd('/').Split('/');
+        var suffix = path.EndsWith('/') ? "/" : string.Empty;
+        var kept = string.Empty;
+        for (var i = parts.Length - 1; i >= 0; i--)
+        {
+            var candidate = parts[i] + (kept.Length > 0 ? "/" + kept : string.Empty);
+            if (2 + candidate.Length + suffix.Length > max)
+            {
+                break;
+            }
+
+            kept = candidate;
+        }
+
+        return kept.Length > 0 ? "…/" + kept + suffix : Truncate(path, max);
+    }
+
     public static string Plural(long count, string singular, string? plural = null) =>
         $"{Number(count)} {(count == 1 ? singular : plural ?? singular + "s")}";
 
@@ -33,18 +62,46 @@ internal static class Format
         Math.Max(1, (int)Math.Ceiling((last - first).TotalDays));
 }
 
+/// <summary>How much horizontal room a renderer has. Every renderer decides its layout from this.</summary>
+internal enum WidthClass
+{
+    /// <summary>Under 40 columns: only a "terminal too narrow" message.</summary>
+    TooNarrow,
+
+    /// <summary>40–79: one column, panels stacked; tables drop secondary columns.</summary>
+    Compact,
+
+    /// <summary>80–99: two columns, shorter labels.</summary>
+    Narrow,
+
+    /// <summary>100–119: two columns, full labels.</summary>
+    Medium,
+
+    /// <summary>120+: room for a third column (the overview adds a calendar).</summary>
+    Wide,
+}
+
 /// <summary>Terminal width breakpoints shared by all renderers.</summary>
 internal static class Breakpoints
 {
-    /// <summary>Below this, side-by-side layouts switch to a stacked compact layout.</summary>
-    public const int Compact = 80;
-
-    /// <summary>Below this, nothing useful fits; a "terminal too narrow" message is shown instead.</summary>
+    public const int Wide = 120;
+    public const int Medium = 100;
+    public const int Narrow = 80;
     public const int Minimum = 40;
 
-    public static bool IsTooNarrow(int width) => width < Minimum;
+    public static WidthClass Of(int width) => width switch
+    {
+        >= Wide => WidthClass.Wide,
+        >= Medium => WidthClass.Medium,
+        >= Narrow => WidthClass.Narrow,
+        >= Minimum => WidthClass.Compact,
+        _ => WidthClass.TooNarrow,
+    };
 
-    public static bool IsCompact(int width) => width < Compact;
+    public static bool IsTooNarrow(int width) => Of(width) == WidthClass.TooNarrow;
+
+    /// <summary>Single-column (stacked) layout.</summary>
+    public static bool IsCompact(int width) => Of(width) == WidthClass.Compact;
 }
 
 /// <summary>Shared building blocks used by several renderers.</summary>

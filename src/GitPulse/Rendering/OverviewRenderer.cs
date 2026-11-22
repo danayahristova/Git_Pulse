@@ -5,8 +5,12 @@ using Spectre.Console.Rendering;
 namespace GitPulse.Rendering;
 
 /// <summary>
-/// The overview dashboard: header, summary grid, language breakdown and top authors.
-/// Side by side in a <see cref="Layout"/> at 80+ columns, stacked below that.
+/// The overview dashboard: header, summary grid, language breakdown, top authors and hotspots.
+/// <list type="bullet">
+/// <item>120+ columns: three columns in a <see cref="Layout"/>; the third is a calendar of the last active month.</item>
+/// <item>80–119: two columns.</item>
+/// <item>40–79: everything stacked.</item>
+/// </list>
 /// </summary>
 internal static class OverviewRenderer
 {
@@ -14,13 +18,21 @@ internal static class OverviewRenderer
 
     public static IRenderable Render(RepoStats stats, int width)
     {
-        if (Breakpoints.IsTooNarrow(width))
+        var widthClass = Breakpoints.Of(width);
+        if (widthClass == WidthClass.TooNarrow)
         {
             return Widgets.TooNarrow(width);
         }
 
-        var compact = Breakpoints.IsCompact(width);
-        var columnWidth = compact ? width : width / 2;
+        var columns = widthClass switch
+        {
+            WidthClass.Wide => 3,
+            WidthClass.Compact => 1,
+            _ => 2,
+        };
+
+        // The calendar needs a fixed width; the other columns share what is left.
+        var columnWidth = columns == 3 ? (width - CalendarMonth.PanelWidth) / 2 : width / columns;
         var nameWidth = columnWidth >= 50 ? 20 : 16;
 
         var header = Header(stats.Summary);
@@ -28,7 +40,7 @@ internal static class OverviewRenderer
         var languages = Widgets.Panel(LanguageChart(stats.Languages), "Languages");
         var authors = Widgets.Panel(AuthorChart(stats.Authors, nameWidth), $"Top {TopAuthors} authors");
 
-        if (compact)
+        if (columns == 1)
         {
             return new Rows(header, summary, languages, authors);
         }
@@ -38,27 +50,39 @@ internal static class OverviewRenderer
         var summaryHeight = SummaryRowCount + 2;
         var languagesHeight = LanguagePanelHeight(stats.Languages, columnWidth - 4);
         var authorsHeight = AuthorPanelHeight(stats.Authors);
+        var month = CalendarMonth.For(stats);
         var bodyHeight = Math.Max(summaryHeight + languagesHeight, authorsHeight + MinHotspotsHeight);
+        if (columns == 3)
+        {
+            bodyHeight = Math.Max(bodyHeight, month.PanelHeight);
+        }
 
-        // The right column is usually shorter: fill the rest with the top hotspots.
+        // The authors column is usually shorter: fill the rest with the top hotspots.
         var hotspotRows = bodyHeight - authorsHeight - 2;
         var hotspots = Widgets.Panel(HotspotList(stats.Hotspots, hotspotRows), "Top hotspots");
 
-        var layout = new Layout("root").SplitRows(
-            new Layout("header").Size(HeaderHeight),
-            new Layout("body").Size(bodyHeight).SplitColumns(
-                new Layout("left").SplitRows(
-                    new Layout("summary").Size(summaryHeight),
-                    new Layout("languages")),
-                new Layout("right").SplitRows(
-                    new Layout("authors").Size(authorsHeight),
-                    new Layout("hotspots"))));
+        var body = new Layout("body").Size(bodyHeight);
+        var left = new Layout("left").SplitRows(new Layout("summary").Size(summaryHeight), new Layout("languages"));
+        var middle = new Layout("middle").SplitRows(new Layout("authors").Size(authorsHeight), new Layout("hotspots"));
+        if (columns == 3)
+        {
+            body.SplitColumns(left, middle, new Layout("calendar").Size(CalendarMonth.PanelWidth));
+        }
+        else
+        {
+            body.SplitColumns(left, middle);
+        }
 
+        var layout = new Layout("root").SplitRows(new Layout("header").Size(HeaderHeight), body);
         layout["header"].Update(header);
         layout["summary"].Update(summary);
         layout["languages"].Update(languages);
         layout["authors"].Update(authors);
         layout["hotspots"].Update(hotspots);
+        if (columns == 3)
+        {
+            layout["calendar"].Update(Widgets.Panel(month.Render(), month.Title));
+        }
 
         return new FixedHeight(layout, HeaderHeight + bodyHeight);
     }

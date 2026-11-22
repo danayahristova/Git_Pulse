@@ -9,11 +9,12 @@ namespace GitPulse.Tests.Cli;
 /// <summary>Drives the interactive menu with simulated key presses.</summary>
 public sealed class InteractiveTests : IDisposable
 {
-    // Menu order: Overview, Authors, Hotspots, Rows to show, Exit.
+    // Menu order: Overview, Authors, Hotspots, Activity, Rows to show, Exit.
     private const int AuthorsIndex = 1;
     private const int HotspotsIndex = 2;
-    private const int RowCountIndex = 3;
-    private const int ExitIndex = 4;
+    private const int ActivityIndex = 3;
+    private const int RowCountIndex = 4;
+    private const int ExitIndex = 5;
 
     private readonly TempRepo _repo = new();
     private readonly TestConsole _console = new TestConsole().Width(120).Interactive();
@@ -71,6 +72,18 @@ public sealed class InteractiveTests : IDisposable
         Assert.Equal(0, exitCode);
         Assert.Contains("Top 2 of 2 authors", output);
         Assert.Contains("Top 2 of 2 changed files", output);
+    }
+
+    [Fact]
+    public void Navigates_to_the_activity_heatmap()
+    {
+        Choose(ActivityIndex);
+        Choose(ExitIndex);
+
+        var (exitCode, output) = Run();
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Commits by weekday", output);
     }
 
     [Fact]

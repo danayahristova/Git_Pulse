@@ -1,6 +1,9 @@
+using GitPulse.Analysis;
 using GitPulse.Models;
 using GitPulse.Rendering;
+using Spectre.Console;
 using Spectre.Console.Rendering;
+using Spectre.Console.Testing;
 using static GitPulse.Tests.Fakes;
 
 namespace GitPulse.Tests.Rendering;
@@ -28,6 +31,46 @@ public sealed class RendererSnapshotTests
     [InlineData(100)]
     [InlineData(70)]
     public void Hotspots(int width) => Check(HotspotsRenderer.Render(Stats, top: 10, width), width, $"hotspots-{width}");
+
+    [Theory]
+    [InlineData(120)]
+    [InlineData(100)]
+    [InlineData(80)]
+    [InlineData(60)]
+    [InlineData(30)]
+    public void Activity(int width) => Check(ActivityRenderer.Render(Stats, width), width, $"activity-{width}");
+
+    [Fact]
+    public void Heatmap_uses_a_canvas_when_the_terminal_has_colors()
+    {
+        var console = new TestConsole().Width(120).Colors(ColorSystem.TrueColor).EmitAnsiSequences();
+        console.Profile.Capabilities.Unicode = true;
+
+        console.Write(new HeatmapGrid(Stats.Heatmap));
+
+        Assert.Contains("\u001b[", console.Output);  // colored cells
+        Assert.DoesNotContain("▓", console.Output); // no glyph fallback
+    }
+
+    [Fact]
+    public void Heatmap_month_labels_do_not_overlap()
+    {
+        var header = HeatmapGrid.MonthHeader(Stats.Heatmap);
+
+        Assert.StartsWith(new string(' ', HeatmapGrid.LabelWidth), header);
+        var months = header.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        Assert.InRange(months.Length, 11, 13); // a label is skipped when it would touch its neighbour
+        Assert.Equal("Nov", months[^1]);
+    }
+
+    [Fact]
+    public void Activity_with_no_recent_commits()
+    {
+        var stats = Stats with { Heatmap = HeatmapBuilder.Build(new Dictionary<DateOnly, int>(), new DateOnly(2026, 11, 18)) };
+        var output = Snapshot.Render(ActivityRenderer.Render(stats, 100), 100);
+
+        Assert.Contains("No commits in this period.", output);
+    }
 
     [Fact]
     public void Authors_respects_top() =>

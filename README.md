@@ -6,7 +6,7 @@ GitPulse is a cross-platform command-line tool that turns any local Git reposito
 
 GitPulse is **read-only**. It never writes to your repository and never touches the network.
 
-> **Status:** Milestone 1 (MVP) is in progress. The commands below work; later milestones add the rest (see [Roadmap](#roadmap)).
+> **Status:** Milestone 1 (MVP) is done and Milestone 2 (visual depth) is in progress. The commands below work; later milestones add the rest (see [Roadmap](#roadmap)).
 
 ## What it looks like
 
@@ -35,17 +35,39 @@ GitPulse is **read-only**. It never writes to your repository and never touches 
 └────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
 ```
 
-Below 80 columns the panels stack vertically; below 40 columns GitPulse says the terminal is too narrow instead of drawing a garbled screen.
+At 120+ columns the overview adds a third column with a calendar of the last active month. Below 80 columns the panels stack vertically; below 40 columns GitPulse says the terminal is too narrow instead of drawing a garbled screen.
+
+`gitpulse heatmap` shows a year of activity (colored cells in a terminal, shade characters when output is redirected):
+
+```text
+┌─Activity · last 36 weeks─────────────────────────────────────────────────────┐
+│     Mar   Apr     May     Jun       Jul     Aug       Sep     Oct     Nov    │
+│ Mon · ░ · · ▒ ░ ░ · · · · ░ · · · · · · · · · · · ░ ░ · · ░ ░ ▒ · · · · ░ ░  │
+│     ░ ░ ░ · ░ ░ ░ ░ ░ ░ ░ ░ · · · · · ░ · · · · ░ ░ · ░ ░ ░ · ░ ▓ ░ ░ ░ ░ ·  │
+│ Wed · █ █ ░ ░ ░ ░ · · · · ░ ▒ · · · · ░ · · · · · · · ░ ░ · · ░ ░ · ░ · · ▒  │
+│     · ░ ░ ▒ · ░ · ░ · · · · · · · · · ░ · · · · · · · · · · ▒ · · · · · · ░  │
+│ Fri ░ ░ · ░ ░ ░ ░ ░ · ░ · · ░ · · · · ░ · ░ ░ ░ ░ · · · · ░ · ░ · · · · ░    │
+│     · ░ ░ ░ · · ░ · · ░ ░ · ░ · · · · · · · · · ░ · · ░ ░ ░ · · · · · · ·    │
+│     · ░ · ░ · · ░ · ░ · ░ ▓ · · · · · · · · · ░ ░ · · ░ ░ · · · · · · ░ ·    │
+│                                                                              │
+│     Less · ░ ▒ ▓ █ More                                                      │
+│                                                                              │
+│ 208 commits on 97 days · busiest day 2026-04-01 (14 commits)                 │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
 
 ## Usage
 
 ```sh
-gitpulse                      # interactive: banner, scan, then a menu (Overview / Authors / Hotspots)
+gitpulse                      # interactive: banner, scan, then a menu (Overview / Authors / Hotspots / Activity)
 gitpulse scan                 # scan with a live progress display
-gitpulse overview             # dashboard: summary, languages, top authors, top hotspots
+gitpulse overview             # dashboard: summary, languages, top authors, top hotspots (+ calendar at 120+ columns)
 gitpulse authors --top 20     # contributor table
-gitpulse hotspots --since 2026-06-01   # most-changed files (lines added + deleted)
+gitpulse hotspots --since 2026-06-01   # most-changed files (lines added + deleted) and a folder tree
+gitpulse heatmap              # activity heatmap, commits by weekday and by time of day
 ```
+
+GitPulse only reads repositories on your machine. To look at one from GitHub, clone it first (a normal, full clone).
 
 | Option | Meaning | Default |
 |--------|---------|---------|
@@ -61,6 +83,8 @@ How the numbers are counted:
 - Authors are grouped by email (case-insensitive) and shown with the name from their latest commit.
 - Merge commits count as commits but add no line changes, like `git log --numstat`, so merged work is not counted twice.
 - Languages are measured by file size in the current `HEAD`, by file extension. Unrecognized files are ignored.
+- Days, weekdays and hours use each commit's own time zone (the author's local time). Weeks start on Monday.
+- The heatmap ends on the day of the last commit, so older repositories still show their activity. Its 4 shades are relative to the busiest day shown.
 
 ## Building
 
@@ -78,8 +102,8 @@ Rendering is covered by snapshot tests: each renderer's output is compared with 
 
 | Milestone | Adds |
 |-----------|------|
-| M1 MVP (in progress) | `scan`, `overview`, `authors`, `hotspots`, interactive menu |
-| M2 Visual depth | `heatmap`, calendar view, file tree, commits by weekday/hour |
+| M1 MVP (done) | `scan`, `overview`, `authors`, `hotspots`, interactive menu |
+| M2 Visual depth (in progress) | `heatmap`, calendar view, file tree, commits by weekday/hour |
 | M3 Detail and filtering | `commit <sha>` with diff, links, JSON output, branch/author filters |
 | M4 Live and export | scan cache, `watch` live dashboard, `report --html` |
 | M5 Release | `dotnet tool` package |

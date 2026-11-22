@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phase 0 is done, and Milestone 1 (MVP) tasks 1.1–1.9 are implemented on `feature/milestone-1`. The work follows the planning docs, which are the source of truth for scope and sequencing:
+Phase 0 and Milestone 1 (MVP) are merged into `main`. Milestone 2 (visual depth) is in progress on `feature/milestone-2`. The work follows the planning docs, which are the source of truth for scope and sequencing:
 
 - `SCOPE.md`: vision, full command list, Spectre.Console feature coverage matrix, constraints, risks
 - `MVP.md`: the Milestone 1 feature set and acceptance criteria
@@ -57,7 +57,9 @@ tests/GitPulse.Tests/
 
 How a run flows: `Program` → `GitPulseApp.Configure` (commands and exception handler) → a command → `Commands/ScanDisplay` (Status spinner while opening, then Progress while `Git/RepositoryScanner` reads the repo in three stages and reports through `IScanProgress`) → `Analysis/RepoAnalyzer` produces `RepoStats` → a renderer returns an `IRenderable` for the current width. Commands get `IAnsiConsole` injected by Spectre.Console.Cli. Do not use the static `AnsiConsole` in commands, or tests can't capture the output.
 
-Responsive rendering: renderers take the console width and use `Rendering/Breakpoints`: below 80 columns they switch to compact mode, below 40 to a "too narrow" message. The overview `Layout` is wrapped in `FixedHeight`, because a `Layout` otherwise fills the whole console height.
+Responsive rendering: renderers take the console width and switch on `Breakpoints.Of(width)` → `WidthClass` (Wide 120+, Medium 100+, Narrow 80+, Compact 40+, TooNarrow). Wide adds the overview calendar; Compact stacks panels. The overview `Layout` is wrapped in `FixedHeight`, because a `Layout` otherwise fills the whole console height.
+
+Color-only widgets need a text fallback: a `Canvas` paints background colors, so `HeatmapGrid` checks `options.Ansi` and draws shade glyphs when ANSI is off (redirected output, snapshot tests). Snapshot tests render with no ANSI and no colors; test the colored path separately with `EmitAnsiSequences()`. In Spectre 0.57 `Canvas` pixels are half-blocks (1 column × half a line); `PixelWidth` is obsolete.
 
 Rules:
 1. Data flows one way: `Git` → `Analysis` → `Models` → `Rendering`.
