@@ -43,6 +43,20 @@ internal sealed class RepositoryReader : IDisposable
 
     public string Name => System.IO.Path.GetFileName(WorkingDirectory);
 
+    /// <summary>
+    /// A cheap summary of where HEAD, the local branches and the tags point. It changes when a commit
+    /// is made, a branch moves or a tag is added, without reading any history.
+    /// </summary>
+    public string StateFingerprint()
+    {
+        var head = _repo.Info.IsHeadUnborn ? "unborn" : _repo.Head.Tip.Sha;
+        var branches = _repo.Branches.Where(b => !b.IsRemote && b.Tip is not null)
+            .Select(b => b.CanonicalName + "=" + b.Tip.Sha)
+            .Order(StringComparer.Ordinal);
+        var tags = _repo.Tags.Select(t => t.CanonicalName + "=" + t.Target.Sha).Order(StringComparer.Ordinal);
+        return string.Join('\n', branches.Concat(tags).Prepend("HEAD=" + head));
+    }
+
     /// <summary>The <c>.git</c> folder; identifies the repository (e.g. for the scan cache).</summary>
     public string GitDirectory => System.IO.Path.TrimEndingDirectorySeparator(_repo.Info.Path);
 
