@@ -100,7 +100,7 @@ internal static class Fakes
             Branches: 4,
             Tags: 12,
             Files: 342,
-            Since: null),
+            Filter: ScanFilter.None),
         Authors:
         [
             new("Ada Lovelace", "ada@example.com", 612, 48210, 20133, Day(1, 3), Day(11, 18)),

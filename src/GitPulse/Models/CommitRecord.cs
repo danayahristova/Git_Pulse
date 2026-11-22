@@ -29,4 +29,4 @@ internal sealed record RepoSnapshot(
     IReadOnlyList<TrackedFile> Files,
     int BranchCount,
     int TagCount,
-    DateOnly? Since);
+    ScanFilter Filter);

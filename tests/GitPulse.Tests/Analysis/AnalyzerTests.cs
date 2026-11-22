@@ -174,11 +174,11 @@ public sealed class RepoAnalyzerTests
             Files: [new("x.cs", 10), new("y.cs", 10)],
             BranchCount: 3,
             TagCount: 1,
-            Since: null);
+            Filter: ScanFilter.None);
 
         var stats = RepoAnalyzer.Analyze(snapshot);
 
-        Assert.Equal(new RepoSummary("demo", 3, 2, Day(1, 1), Day(5, 1), 3, 1, 2, null), stats.Summary);
+        Assert.Equal(new RepoSummary("demo", 3, 2, Day(1, 1), Day(5, 1), 3, 1, 2, ScanFilter.None), stats.Summary);
         Assert.Equal("A", stats.Authors[0].Name);
         Assert.Equal("x.cs", stats.Hotspots[0].Path);
         Assert.Equal("C#", Assert.Single(stats.Languages).Language);

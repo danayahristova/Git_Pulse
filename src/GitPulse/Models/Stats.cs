@@ -29,7 +29,7 @@ internal sealed record RepoSummary(
     int Branches,
     int Tags,
     int Files,
-    DateOnly? Since);
+    ScanFilter Filter);
 
 /// <summary>All derived statistics for one scan. This is what renderers consume.</summary>
 internal sealed record RepoStats(

@@ -26,8 +26,35 @@ internal sealed class EmptyRepositoryException(string path)
         $"The repository at '{path}' has no commits yet.",
         "Make a first commit, then run gitpulse again.");
 
-internal sealed class NoCommitsInRangeException(DateOnly since)
+internal sealed class NoCommitsInRangeException(string filterDescription)
     : GitPulseException(
         "No commits in range",
-        $"No commits were found since {since:yyyy-MM-dd}.",
-        "Try an earlier --since date, or leave it out.");
+        $"No commits match: {filterDescription}.",
+        "Widen the date range, or remove --since/--until/--branch/--author.");
+
+internal sealed class NoCommitsByAuthorException(string filterDescription)
+    : GitPulseException(
+        "No matching commits",
+        $"No commits match: {filterDescription}.",
+        "Check the --author spelling; it matches part of a name or email, ignoring case.");
+
+internal sealed class BranchNotFoundException(string branch, IReadOnlyList<string> available)
+    : GitPulseException(
+        "Branch not found",
+        $"There is no local branch named '{branch}'.",
+        available.Count == 0 ? null : "Local branches: " + string.Join(", ", available.Take(10)) +
+            (available.Count > 10 ? $" and {available.Count - 10} more" : string.Empty) + ".");
+
+internal sealed class CommitNotFoundException(string revision, bool ambiguous = false)
+    : GitPulseException(
+        ambiguous ? "Ambiguous commit" : "Commit not found",
+        ambiguous
+            ? $"'{revision}' matches more than one commit."
+            : $"No commit matches '{revision}'.",
+        ambiguous
+            ? "Use more characters of the SHA."
+            : "Use a SHA (or the start of one), HEAD~N, a branch or a tag.");
+
+/// <summary>A command needs something it cannot ask for, because the console is not interactive.</summary>
+internal sealed class NeedsInputException(string title, string message, string hint)
+    : GitPulseException(title, message, hint);

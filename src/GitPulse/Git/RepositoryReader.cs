@@ -47,11 +47,25 @@ internal sealed class RepositoryReader : IDisposable
 
     public int TagCount => _repo.Tags.Count();
 
+    /// <summary>Local branch names, the current branch first, then alphabetical.</summary>
+    public IReadOnlyList<string> BranchNames =>
+        _repo.Branches.Where(b => !b.IsRemote)
+            .OrderByDescending(b => b.IsCurrentRepositoryHead)
+            .ThenBy(b => b.FriendlyName, StringComparer.Ordinal)
+            .Select(b => b.FriendlyName)
+            .ToList();
+
+    /// <summary>The <c>origin</c> remote's URL (or the first remote's), if any. Read from config only.</summary>
+    public string? RemoteUrl =>
+        (_repo.Network.Remotes["origin"] ?? _repo.Network.Remotes.FirstOrDefault())?.Url;
+
     /// <summary>
-    /// Commits reachable from HEAD, newest first, without diff stats (cheap).
-    /// <paramref name="onCommit"/> is called for each commit found, for progress reporting.
+    /// Commits newest first, without diff stats (cheap), limited by the filter's dates and branches.
+    /// Without branches, history starts at HEAD. Authors are filtered later, in the analysis.
+    /// <paramref name="onCommit"/> is called for each commit kept, for progress reporting.
     /// </summary>
-    internal IReadOnlyList<Commit> ListCommits(DateTimeOffset? since = null, Action? onCommit = null)
+    /// <exception cref="BranchNotFoundException">A branch in the filter does not exist.</exception>
+    internal IReadOnlyList<Commit> ListCommits(ScanFilter? scanFilter = null, Action? onCommit = null)
     {
         var result = new List<Commit>();
         if (IsEmpty)
@@ -59,22 +73,29 @@ internal sealed class RepositoryReader : IDisposable
             return result;
         }
 
+        scanFilter ??= ScanFilter.None;
+        var since = scanFilter.Since is { } s ? StartOfDay(s) : (DateTimeOffset?)null;
+        var untilExclusive = scanFilter.Until is { } u ? StartOfDay(u.AddDays(1)) : (DateTimeOffset?)null;
+
         var filter = new CommitFilter { SortBy = CommitSortStrategies.Time };
+        if (scanFilter.BranchList.Count > 0)
+        {
+            filter.IncludeReachableFrom = scanFilter.BranchList.Select(ResolveBranch).ToList();
+        }
+
         foreach (var commit in _repo.Commits.QueryBy(filter))
         {
-            if (since is { } s)
+            // Sorted by committer time, so once that is older than "since" we can stop.
+            // Author time decides inclusion (rebased commits keep their author date).
+            if (since is { } from && commit.Committer.When < from)
             {
-                // Sorted by committer time, so once that is older we can stop.
-                // Author time decides inclusion (rebased commits keep their author date).
-                if (commit.Committer.When < s)
-                {
-                    break;
-                }
+                break;
+            }
 
-                if (commit.Author.When < s)
-                {
-                    continue;
-                }
+            var when = commit.Author.When;
+            if ((since is { } start && when < start) || (untilExclusive is { } end && when >= end))
+            {
+                continue;
             }
 
             result.Add(commit);
@@ -83,6 +104,103 @@ internal sealed class RepositoryReader : IDisposable
 
         return result;
     }
+
+    /// <summary>The most recent commits from HEAD, for the commit picker.</summary>
+    public IReadOnlyList<CommitHeader> RecentCommits(int max) =>
+        ListCommits().Take(max)
+            .Select(c => new CommitHeader(c.Sha, c.Author.Name, c.Author.When, c.MessageShort))
+            .ToList();
+
+    /// <summary>
+    /// Full details of one commit, with its diff against the first parent.
+    /// <paramref name="revision"/> can be a full or short SHA, <c>HEAD~2</c>, a branch or a tag.
+    /// </summary>
+    /// <exception cref="CommitNotFoundException">Nothing matches, or the revision is ambiguous.</exception>
+    public CommitDetail ReadCommitDetail(string revision, DiffLimits limits)
+    {
+        var commit = LookupCommit(revision);
+        var parents = commit.Parents.ToList();
+        // Same options for both, so renames are detected the same way in the patch and the change list.
+        var compare = new CompareOptions { ContextLines = 3, Similarity = SimilarityOptions.Renames };
+
+        using var patch = _repo.Diff.Compare<Patch>(parents.FirstOrDefault()?.Tree, commit.Tree, compare);
+        using var changes = _repo.Diff.Compare<TreeChanges>(parents.FirstOrDefault()?.Tree, commit.Tree, compare);
+        var kinds = changes.ToDictionary(c => c.Path, c => (c.Status, c.OldPath), StringComparer.Ordinal);
+
+        var budget = limits.MaxTotalLines;
+        var files = new List<FileDiff>();
+        foreach (var entry in patch)
+        {
+            var (status, oldPath) = kinds.TryGetValue(entry.Path, out var k) ? k : (entry.Status, entry.OldPath);
+            var maxLines = Math.Min(limits.MaxLinesPerFile, budget);
+            var (lines, hidden) = entry.IsBinaryComparison
+                ? ([], 0)
+                : DiffParser.Parse(entry.Patch, maxLines);
+            budget -= lines.Count;
+
+            files.Add(new FileDiff(
+                entry.Path,
+                status is ChangeKind.Renamed or ChangeKind.Copied && oldPath != entry.Path ? oldPath : null,
+                KindOf(status),
+                entry.LinesAdded,
+                entry.LinesDeleted,
+                entry.IsBinaryComparison,
+                lines,
+                hidden));
+        }
+
+        return new CommitDetail(
+            commit.Sha,
+            commit.Author.Name,
+            commit.Author.Email,
+            commit.Author.When,
+            commit.Committer.Name,
+            commit.Committer.Email,
+            commit.Committer.When,
+            commit.Message.TrimEnd('\n', '\r'),
+            parents.Select(p => p.Sha).ToList(),
+            files,
+            RemoteLinks.CommitUrl(RemoteUrl, commit.Sha));
+    }
+
+    private Commit LookupCommit(string revision)
+    {
+        if (IsEmpty)
+        {
+            throw new EmptyRepositoryException(SearchedPath);
+        }
+
+        try
+        {
+            return _repo.Lookup<Commit>(revision) ?? throw new CommitNotFoundException(revision);
+        }
+        catch (AmbiguousSpecificationException)
+        {
+            throw new CommitNotFoundException(revision, ambiguous: true);
+        }
+        catch (LibGit2SharpException)
+        {
+            throw new CommitNotFoundException(revision);
+        }
+    }
+
+    private Commit ResolveBranch(string name) =>
+        _repo.Branches[name]?.Tip ?? throw new BranchNotFoundException(name, BranchNames);
+
+    private static FileChangeKind KindOf(ChangeKind kind) => kind switch
+    {
+        ChangeKind.Added => FileChangeKind.Added,
+        ChangeKind.Modified => FileChangeKind.Modified,
+        ChangeKind.Deleted => FileChangeKind.Deleted,
+        ChangeKind.Renamed => FileChangeKind.Renamed,
+        ChangeKind.Copied => FileChangeKind.Copied,
+        ChangeKind.TypeChanged => FileChangeKind.TypeChanged,
+        _ => FileChangeKind.Other,
+    };
+
+    /// <summary>Local midnight of <paramref name="date"/>.</summary>
+    private static DateTimeOffset StartOfDay(DateOnly date) =>
+        new(date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local));
 
     /// <summary>
     /// Reads per-file line stats for one commit. Merge commits get no file stats,
@@ -111,9 +229,9 @@ internal sealed class RepositoryReader : IDisposable
     }
 
     /// <summary>Convenience: commits with stats, newest first.</summary>
-    public IEnumerable<CommitRecord> ReadCommits(DateTimeOffset? since = null, int? max = null)
+    public IEnumerable<CommitRecord> ReadCommits(ScanFilter? filter = null, int? max = null)
     {
-        var commits = ListCommits(since);
+        var commits = ListCommits(filter);
         return (max is { } m ? commits.Take(m) : commits).Select(ReadStats);
     }
 
@@ -149,4 +267,13 @@ internal sealed class RepositoryReader : IDisposable
         new(entry.Path.Replace('\\', '/'), ((Blob)entry.Target).Size);
 
     public void Dispose() => _repo.Dispose();
+}
+
+/// <summary>How much diff to keep, so a huge commit stays readable.</summary>
+internal sealed record DiffLimits(int MaxLinesPerFile = 200, int MaxTotalLines = 2000)
+{
+    public static DiffLimits Default { get; } = new();
+
+    /// <summary>File list and stats only (<c>--no-diff</c>, <c>--raw</c>).</summary>
+    public static DiffLimits None { get; } = new(0, 0);
 }
