@@ -43,7 +43,9 @@ jobs:
       - name: Smoke run (gitpulse on its own repo)
         shell: bash
         run: |
-          gp() { dotnet run --project src/GitPulse --configuration Release --no-build -- "$@"; }
+          set -x  # log each command, so a failure shows which one
+          # --no-launch-profile: otherwise dotnet run prints "Using launch settings from ..." to stdout.
+          gp() { dotnet run --project src/GitPulse --configuration Release --no-build --no-launch-profile -- "$@"; }
           gp                      # default command: prints the overview when not interactive
           gp scan
           gp authors --top 5
@@ -51,7 +53,9 @@ jobs:
           gp heatmap
           gp commit HEAD
           gp commit HEAD~1 --no-diff
-          gp authors --since 2026-01-01 --until 2099-12-31 --author a
+          # dates from the repo's own history, so the check doesn't depend on the runner's clock
+          since=$(git log -1 --format=%cs HEAD~1)
+          gp authors --since "$since" --until 2099-12-31 --author a
           # --raw must be valid JSON and nothing else
           gp commit HEAD --raw > "$RUNNER_TEMP/commit.json"
           pwsh -NoProfile -Command "Get-Content -Raw '$RUNNER_TEMP/commit.json' | ConvertFrom-Json | Out-Null"

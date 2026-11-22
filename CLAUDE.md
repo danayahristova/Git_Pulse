@@ -24,7 +24,7 @@ dotnet build
 dotnet test                                                       # Microsoft.Testing.Platform (see global.json)
 dotnet test --project tests/GitPulse.Tests -- --filter-method "*RepositoryReader*"   # single test/class
 dotnet test --project tests/GitPulse.Tests -- --filter-class "GitPulse.Tests.Git.RepositoryReaderTests"
-dotnet run --project src/GitPulse -- --path <repo>
+dotnet run --project src/GitPulse --no-launch-profile -- --path <repo>   # without --no-launch-profile, dotnet run prints a launch-settings line to stdout
 dotnet src/GitPulse/bin/Debug/net10.0/gitpulse.dll                # run the DLL directly (bypasses the apphost .exe)
 ```
 
