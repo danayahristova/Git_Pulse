@@ -59,6 +59,10 @@ jobs:
           # --raw must be valid JSON and nothing else
           gp commit HEAD --raw > "$RUNNER_TEMP/commit.json"
           pwsh -NoProfile -Command "Get-Content -Raw '$RUNNER_TEMP/commit.json' | ConvertFrom-Json | Out-Null"
+          gp report --html "$RUNNER_TEMP/report.html"
+          grep -q "<!doctype html>" "$RUNNER_TEMP/report.html"
           # expected failures must exit non-zero
+          if gp report --html "$RUNNER_TEMP/report.html"; then echo "overwrite without --force should fail"; exit 1; fi
+          if gp watch; then echo "watch without a terminal should fail"; exit 1; fi
           if gp authors --top 0; then echo "--top 0 should fail"; exit 1; fi
           if gp overview --path "$RUNNER_TEMP"; then echo "non-repo should fail"; exit 1; fi

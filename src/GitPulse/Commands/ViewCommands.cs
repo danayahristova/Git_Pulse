@@ -8,10 +8,10 @@ using Spectre.Console.Rendering;
 namespace GitPulse.Commands;
 
 /// <summary>
-/// Base for the one-shot report commands: scan with progress, then write one renderable.
+/// Base for the one-shot view commands: scan with progress, then write one renderable.
 /// Commands stay thin; all drawing happens in Rendering/.
 /// </summary>
-internal abstract class ReportCommand(IAnsiConsole console) : Command<RepoSettings>
+internal abstract class ViewCommand(IAnsiConsole console) : Command<RepoSettings>
 {
     protected IAnsiConsole Console { get; } = console;
 
@@ -27,25 +27,25 @@ internal abstract class ReportCommand(IAnsiConsole console) : Command<RepoSettin
     protected abstract IRenderable Render(RepoStats stats, RepoSettings settings, int width);
 }
 
-internal sealed class OverviewCommand(IAnsiConsole console) : ReportCommand(console)
+internal sealed class OverviewCommand(IAnsiConsole console) : ViewCommand(console)
 {
     protected override IRenderable Render(RepoStats stats, RepoSettings settings, int width) =>
         OverviewRenderer.Render(stats, width);
 }
 
-internal sealed class AuthorsCommand(IAnsiConsole console) : ReportCommand(console)
+internal sealed class AuthorsCommand(IAnsiConsole console) : ViewCommand(console)
 {
     protected override IRenderable Render(RepoStats stats, RepoSettings settings, int width) =>
         AuthorsRenderer.Render(stats, settings.Top, width);
 }
 
-internal sealed class HotspotsCommand(IAnsiConsole console) : ReportCommand(console)
+internal sealed class HotspotsCommand(IAnsiConsole console) : ViewCommand(console)
 {
     protected override IRenderable Render(RepoStats stats, RepoSettings settings, int width) =>
         HotspotsRenderer.Render(stats, settings.Top, width);
 }
 
-internal sealed class HeatmapCommand(IAnsiConsole console) : ReportCommand(console)
+internal sealed class HeatmapCommand(IAnsiConsole console) : ViewCommand(console)
 {
     protected override IRenderable Render(RepoStats stats, RepoSettings settings, int width) =>
         ActivityRenderer.Render(stats, width);

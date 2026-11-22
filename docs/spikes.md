@@ -29,3 +29,11 @@ Test: `tests/GitPulse.Tests/Spikes/LayoutSpikeTests.cs` (asserts no throw and no
 - .NET 10 SDK requires opting into Microsoft.Testing.Platform for xunit.v3 (see `global.json`). VSTest packages (`Microsoft.NET.Test.Sdk`, `xunit.runner.visualstudio`, `coverlet.collector`) are not used.
 - Verify 33.x fails the build unless a SponsorCheck license property is set. It is not used: snapshot tests use a small built-in helper instead (`tests/GitPulse.Tests/Rendering/Snapshot.cs`). Whether to switch to Verify is still open.
 - On the dev machine, Windows Smart App Control blocks freshly built unsigned binaries (`An Application Control policy has blocked this file`, Code Integrity events 3033/3077). Development runs in **WSL Ubuntu** instead (see CLAUDE.md). CI covers Windows.
+
+## Milestone 4 findings
+
+- **Spectre's `Recorder.ExportHtml()` does not HTML-escape text** (0.57.2). A repository named `<script>alert(1)</script>` came out as a live `<script>` element. Repo names, authors, messages and paths are untrusted text, so `report --html` uses its own `IAnsiConsoleEncoder` (`HtmlReport.SafeHtmlEncoder`) that escapes every segment. A test checks this. This may be worth reporting upstream.
+- Recording a color-only widget (the heatmap `Canvas`) needs `Profile.Capabilities.Ansi = true` on the off-screen console, or `HeatmapGrid` falls back to shade glyphs.
+- In WSL, a `FileSystemWatcher` on a repository under `/mnt/<drive>` gets no events for changes made from Windows. `watch` therefore also polls a cheap HEAD/branch/tag fingerprint.
+- `dotnet run` prints "Using launch settings from …" to stdout unless `--no-launch-profile` is passed. It broke the CI check that `--raw` produces valid JSON.
+- Scan cache, xUnit (3,260 commits): 7.3 s without the cache, 0.67 s with it. The cache file is 2.6 MB.
