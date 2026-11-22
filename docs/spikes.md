@@ -27,5 +27,5 @@ Test: `tests/GitPulse.Tests/Spikes/LayoutSpikeTests.cs` (asserts no throw and no
 ## Environment
 
 - .NET 10 SDK requires opting into Microsoft.Testing.Platform for xunit.v3 (see `global.json`). VSTest packages (`Microsoft.NET.Test.Sdk`, `xunit.runner.visualstudio`, `coverlet.collector`) are not used.
-- Verify 33.x fails the build unless a SponsorCheck license property is set. It is not referenced yet, and the decision is pending before task 1.9.
+- Verify 33.x fails the build unless a SponsorCheck license property is set. It is not used: snapshot tests use a small built-in helper instead (`tests/GitPulse.Tests/Rendering/Snapshot.cs`). Whether to switch to Verify is still open.
 - On the dev machine, Windows Smart App Control blocks freshly built unsigned binaries (`An Application Control policy has blocked this file`, Code Integrity events 3033/3077). Development runs in **WSL Ubuntu** instead (see CLAUDE.md). CI covers Windows.
