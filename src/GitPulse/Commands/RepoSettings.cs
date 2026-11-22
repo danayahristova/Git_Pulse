@@ -31,6 +31,10 @@ internal class RepoSettings : CommandSettings
     [Description("Only include commits whose author name or email contains this text (any case). Repeat for several.")]
     public string[] Authors { get; init; } = [];
 
+    [CommandOption("--no-cache")]
+    [Description("Don't read or write the scan cache (in your user cache folder, never in the repository).")]
+    public bool NoCache { get; init; }
+
     [CommandOption("-t|--top <N>")]
     [Description("Number of rows to show (1-100).")]
     [DefaultValue(10)]

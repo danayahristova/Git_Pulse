@@ -43,6 +43,9 @@ internal sealed class RepositoryReader : IDisposable
 
     public string Name => System.IO.Path.GetFileName(WorkingDirectory);
 
+    /// <summary>The <c>.git</c> folder; identifies the repository (e.g. for the scan cache).</summary>
+    public string GitDirectory => System.IO.Path.TrimEndingDirectorySeparator(_repo.Info.Path);
+
     public int BranchCount => _repo.Branches.Count(b => !b.IsRemote);
 
     public int TagCount => _repo.Tags.Count();
@@ -226,7 +229,7 @@ internal sealed class RepositoryReader : IDisposable
     /// Reads per-file line stats for one commit. Merge commits get no file stats,
     /// like <c>git log --numstat</c>, so merged changes are not counted twice.
     /// </summary>
-    internal CommitRecord ReadStats(Commit commit)
+    internal CommitRecord ReadStats(Commit commit, ICommitStatsCache? cache = null)
     {
         var parents = commit.Parents.ToList();
         var isMerge = parents.Count > 1;
@@ -234,8 +237,16 @@ internal sealed class RepositoryReader : IDisposable
         IReadOnlyList<FileChange> files = [];
         if (!isMerge)
         {
-            using var patch = _repo.Diff.Compare<Patch>(parents.FirstOrDefault()?.Tree, commit.Tree);
-            files = patch.Select(f => new FileChange(f.Path, f.LinesAdded, f.LinesDeleted)).ToList();
+            if (cache is not null && cache.TryGet(commit.Sha, out var cached))
+            {
+                files = cached;
+            }
+            else
+            {
+                using var patch = _repo.Diff.Compare<Patch>(parents.FirstOrDefault()?.Tree, commit.Tree);
+                files = patch.Select(f => new FileChange(f.Path, f.LinesAdded, f.LinesDeleted)).ToList();
+                cache?.Put(commit.Sha, files);
+            }
         }
 
         return new CommitRecord(
@@ -252,7 +263,7 @@ internal sealed class RepositoryReader : IDisposable
     public IEnumerable<CommitRecord> ReadCommits(ScanFilter? filter = null, int? max = null)
     {
         var commits = EnumerateCommits(filter);
-        return (max is { } m ? commits.Take(m) : commits).Select(ReadStats);
+        return (max is { } m ? commits.Take(m) : commits).Select(c => ReadStats(c));
     }
 
     /// <summary>Paths of all files (blobs) in the HEAD tree. Submodules are skipped.</summary>

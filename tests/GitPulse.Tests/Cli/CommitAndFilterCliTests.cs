@@ -117,6 +117,18 @@ public sealed class CommitAndFilterCliTests : IDisposable
     }
 
     [Fact]
+    public void Scan_reports_the_cache()
+    {
+        var first = Run("scan", "--path", _repo.Dir);
+        var second = Run("scan", "--path", _repo.Dir);
+        var off = Run("scan", "--path", _repo.Dir, "--no-cache");
+
+        Assert.Contains("Cache: 0 from cache, 3 commits diffed.", first.Output);
+        Assert.Contains("Cache: 3 from cache, 0 commits diffed.", second.Output);
+        Assert.Contains("Cache: off (--no-cache).", off.Output);
+    }
+
+    [Fact]
     public void Until_before_since_is_a_usage_error()
     {
         var result = Run("scan", "--path", _repo.Dir, "--since", "2026-03-01", "--until", "2026-02-01");

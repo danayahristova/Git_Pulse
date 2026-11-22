@@ -64,6 +64,7 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
 
         private readonly IAnsiConsole _console;
         private readonly string _path;
+        private readonly bool _useCache;
         private readonly CancellationToken _cancellationToken;
 
         private ScanFilter _filter;
@@ -77,10 +78,11 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
         {
             _console = console;
             _path = settings.Path;
+            _useCache = !settings.NoCache;
             _cancellationToken = cancellationToken;
             _top = settings.Top;
             _filter = settings.ToFilter();
-            _snapshot = ScanDisplay.Scan(console, _path, _filter, cancellationToken);
+            _snapshot = ScanDisplay.Scan(console, _path, _filter, _useCache, cancellationToken).Snapshot;
             Stats = RepoAnalyzer.Analyze(_snapshot);
         }
 
@@ -193,7 +195,7 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
             try
             {
                 var snapshot = rescan
-                    ? ScanDisplay.Scan(_console, _path, filter, _cancellationToken)
+                    ? ScanDisplay.Scan(_console, _path, filter, _useCache, _cancellationToken).Snapshot
                     : _snapshot with { Filter = filter };
                 var stats = RepoAnalyzer.Analyze(snapshot);
 

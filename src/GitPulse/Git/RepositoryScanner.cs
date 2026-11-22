@@ -38,7 +38,8 @@ internal static class RepositoryScanner
         RepositoryReader reader,
         ScanFilter? filter = null,
         IScanProgress? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ICommitStatsCache? cache = null)
     {
         filter ??= ScanFilter.None;
         if (reader.IsEmpty)
@@ -56,13 +57,13 @@ internal static class RepositoryScanner
             throw new NoCommitsInRangeException(filter.WithoutAuthors().Describe());
         }
 
-        // 2. Diff stats per commit (the expensive part).
+        // 2. Diff stats per commit (the expensive part; cached commits are nearly free).
         progress?.Started(ScanStage.ComputingDiffStats, commits.Count);
         var records = new List<CommitRecord>(commits.Count);
         foreach (var commit in commits)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            records.Add(reader.ReadStats(commit));
+            records.Add(reader.ReadStats(commit, cache));
             progress?.Advanced(ScanStage.ComputingDiffStats);
         }
 

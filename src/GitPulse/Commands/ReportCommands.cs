@@ -51,13 +51,14 @@ internal sealed class HeatmapCommand(IAnsiConsole console) : ReportCommand(conso
         ActivityRenderer.Render(stats, width);
 }
 
-/// <summary>Scans and prints a one-line result. (Caching the scan comes in milestone 4.)</summary>
+/// <summary>Scans (filling the cache, so later commands are fast) and prints a short result.</summary>
 internal sealed class ScanCommand(IAnsiConsole console) : Command<RepoSettings>
 {
     public override int Execute(CommandContext context, RepoSettings settings, CancellationToken cancellationToken)
     {
         var timer = Stopwatch.StartNew();
-        var stats = ScanDisplay.Run(console, settings, cancellationToken);
+        var outcome = ScanDisplay.Scan(console, settings.Path, settings.ToFilter(), !settings.NoCache, cancellationToken);
+        var stats = Analysis.RepoAnalyzer.Analyze(outcome.Snapshot);
         timer.Stop();
 
         var s = stats.Summary;
@@ -68,7 +69,15 @@ internal sealed class ScanCommand(IAnsiConsole console) : Command<RepoSettings>
             $"{Theme.Bold(Format.Plural(s.Authors, "author"))} and " +
             $"{Theme.Bold(Format.Plural(s.Files, "file"))} in " +
             Theme.Bold(timer.Elapsed.TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "s") + ".");
+        console.MarkupLine(Theme.Dim(CacheLine(outcome.Cache)));
         console.MarkupLine(Theme.Dim("Next: gitpulse overview, gitpulse authors or gitpulse hotspots."));
         return 0;
     }
+
+    internal static string CacheLine(Caching.ScanCache? cache) => cache switch
+    {
+        null => "Cache: off (--no-cache).",
+        { LoadFailed: true } => $"Cache: the old cache could not be read and was rebuilt ({Format.Plural(cache.Misses, "commit")} diffed).",
+        _ => $"Cache: {Format.Number(cache.Hits)} from cache, {Format.Plural(cache.Misses, "commit")} diffed.",
+    };
 }
