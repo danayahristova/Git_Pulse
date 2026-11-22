@@ -73,13 +73,17 @@ internal sealed record CommitHeader(string Sha, string AuthorName, DateTimeOffse
 
 /// <summary>
 /// What part of the history to analyze. Dates, branches and authors combine (AND).
-/// Authors match when the name or email contains the text, ignoring case.
+/// <list type="bullet">
+/// <item><see cref="Authors"/> (typed with <c>--author</c>): the name or email <em>contains</em> the text, ignoring case.</item>
+/// <item><see cref="ExactAuthors"/> (ticked in the menu): the email, or the name when there is no email, <em>equals</em> it, ignoring case.</item>
+/// </list>
 /// </summary>
 internal sealed record ScanFilter(
     DateOnly? Since = null,
     DateOnly? Until = null,
     IReadOnlyList<string>? Branches = null,
-    IReadOnlyList<string>? Authors = null)
+    IReadOnlyList<string>? Authors = null,
+    IReadOnlyList<string>? ExactAuthors = null)
 {
     public static ScanFilter None { get; } = new();
 
@@ -87,7 +91,18 @@ internal sealed record ScanFilter(
 
     public IReadOnlyList<string> AuthorList => Authors ?? [];
 
-    public bool IsEmpty => Since is null && Until is null && BranchList.Count == 0 && AuthorList.Count == 0;
+    public IReadOnlyList<string> ExactAuthorList => ExactAuthors ?? [];
+
+    public bool HasAuthorFilter => AuthorList.Count > 0 || ExactAuthorList.Count > 0;
+
+    public bool IsEmpty => Since is null && Until is null && BranchList.Count == 0 && !HasAuthorFilter;
+
+    /// <summary>The same filter without any author part (what the scan itself applies).</summary>
+    public ScanFilter WithoutAuthors() => this with { Authors = null, ExactAuthors = null };
+
+    /// <summary>The identity an exact author filter compares against.</summary>
+    public static string AuthorKey(string name, string email) =>
+        string.IsNullOrWhiteSpace(email) ? name.Trim() : email.Trim();
 
     /// <summary>Short description for headers, e.g. "since 2026-01-01 · branch main".</summary>
     public string Describe()
@@ -108,17 +123,25 @@ internal sealed record ScanFilter(
             parts.Add((BranchList.Count == 1 ? "branch " : "branches ") + string.Join(", ", BranchList));
         }
 
-        if (AuthorList.Count > 0)
+        var authors = AuthorList.Concat(ExactAuthorList).ToList();
+        if (authors.Count > 0)
         {
-            parts.Add((AuthorList.Count == 1 ? "author " : "authors ") + string.Join(", ", AuthorList));
+            parts.Add((authors.Count == 1 ? "author " : "authors ") + string.Join(", ", authors));
         }
 
         return parts.Count == 0 ? "all history" : string.Join(" · ", parts);
     }
 
-    public bool MatchesAuthor(string name, string email) =>
-        AuthorList.Count == 0 ||
-        AuthorList.Any(a =>
+    public bool MatchesAuthor(string name, string email)
+    {
+        var typed = AuthorList.Count == 0 || AuthorList.Any(a =>
             name.Contains(a, StringComparison.OrdinalIgnoreCase) ||
             email.Contains(a, StringComparison.OrdinalIgnoreCase));
+
+        var key = AuthorKey(name, email);
+        var ticked = ExactAuthorList.Count == 0 ||
+                     ExactAuthorList.Any(a => string.Equals(a, key, StringComparison.OrdinalIgnoreCase));
+
+        return typed && ticked;
+    }
 }

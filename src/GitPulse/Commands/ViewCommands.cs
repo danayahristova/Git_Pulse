@@ -8,10 +8,10 @@ using Spectre.Console.Rendering;
 namespace GitPulse.Commands;
 
 /// <summary>
-/// Base for the one-shot report commands: scan with progress, then write one renderable.
+/// Base for the one-shot view commands: scan with progress, then write one renderable.
 /// Commands stay thin; all drawing happens in Rendering/.
 /// </summary>
-internal abstract class ReportCommand(IAnsiConsole console) : Command<RepoSettings>
+internal abstract class ViewCommand(IAnsiConsole console) : Command<RepoSettings>
 {
     protected IAnsiConsole Console { get; } = console;
 
@@ -27,37 +27,38 @@ internal abstract class ReportCommand(IAnsiConsole console) : Command<RepoSettin
     protected abstract IRenderable Render(RepoStats stats, RepoSettings settings, int width);
 }
 
-internal sealed class OverviewCommand(IAnsiConsole console) : ReportCommand(console)
+internal sealed class OverviewCommand(IAnsiConsole console) : ViewCommand(console)
 {
     protected override IRenderable Render(RepoStats stats, RepoSettings settings, int width) =>
         OverviewRenderer.Render(stats, width);
 }
 
-internal sealed class AuthorsCommand(IAnsiConsole console) : ReportCommand(console)
+internal sealed class AuthorsCommand(IAnsiConsole console) : ViewCommand(console)
 {
     protected override IRenderable Render(RepoStats stats, RepoSettings settings, int width) =>
         AuthorsRenderer.Render(stats, settings.Top, width);
 }
 
-internal sealed class HotspotsCommand(IAnsiConsole console) : ReportCommand(console)
+internal sealed class HotspotsCommand(IAnsiConsole console) : ViewCommand(console)
 {
     protected override IRenderable Render(RepoStats stats, RepoSettings settings, int width) =>
         HotspotsRenderer.Render(stats, settings.Top, width);
 }
 
-internal sealed class HeatmapCommand(IAnsiConsole console) : ReportCommand(console)
+internal sealed class HeatmapCommand(IAnsiConsole console) : ViewCommand(console)
 {
     protected override IRenderable Render(RepoStats stats, RepoSettings settings, int width) =>
         ActivityRenderer.Render(stats, width);
 }
 
-/// <summary>Scans and prints a one-line result. (Caching the scan comes in milestone 4.)</summary>
+/// <summary>Scans (filling the cache, so later commands are fast) and prints a short result.</summary>
 internal sealed class ScanCommand(IAnsiConsole console) : Command<RepoSettings>
 {
     public override int Execute(CommandContext context, RepoSettings settings, CancellationToken cancellationToken)
     {
         var timer = Stopwatch.StartNew();
-        var stats = ScanDisplay.Run(console, settings, cancellationToken);
+        var outcome = ScanDisplay.Scan(console, settings.Path, settings.ToFilter(), !settings.NoCache, cancellationToken);
+        var stats = Analysis.RepoAnalyzer.Analyze(outcome.Snapshot);
         timer.Stop();
 
         var s = stats.Summary;
@@ -68,7 +69,15 @@ internal sealed class ScanCommand(IAnsiConsole console) : Command<RepoSettings>
             $"{Theme.Bold(Format.Plural(s.Authors, "author"))} and " +
             $"{Theme.Bold(Format.Plural(s.Files, "file"))} in " +
             Theme.Bold(timer.Elapsed.TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "s") + ".");
+        console.MarkupLine(Theme.Dim(CacheLine(outcome.Cache)));
         console.MarkupLine(Theme.Dim("Next: gitpulse overview, gitpulse authors or gitpulse hotspots."));
         return 0;
     }
+
+    internal static string CacheLine(Caching.ScanCache? cache) => cache switch
+    {
+        null => "Cache: off (--no-cache).",
+        { LoadFailed: true } => $"Cache: the old cache could not be read and was rebuilt ({Format.Plural(cache.Misses, "commit")} diffed).",
+        _ => $"Cache: {Format.Number(cache.Hits)} from cache, {Format.Plural(cache.Misses, "commit")} diffed.",
+    };
 }

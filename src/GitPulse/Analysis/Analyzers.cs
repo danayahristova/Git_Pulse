@@ -138,7 +138,7 @@ internal static class RepoAnalyzer
         // Dates and branches were applied by the scan; authors are applied here, so the
         // interactive menu can change them without reading the repository again.
         var filter = snapshot.Filter;
-        IReadOnlyList<CommitRecord> commits = filter.AuthorList.Count == 0
+        IReadOnlyList<CommitRecord> commits = !filter.HasAuthorFilter
             ? snapshot.Commits
             : snapshot.Commits.Where(c => filter.MatchesAuthor(c.AuthorName, c.AuthorEmail)).ToList();
         if (commits.Count == 0 && snapshot.Commits.Count > 0)

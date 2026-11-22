@@ -41,6 +41,16 @@ internal static class GitPulseApp
             .WithExample("commit", "1a2b3c4", "--raw")
             .WithExample("commit");
 
+        config.AddCommand<HtmlReportCommand>("report")
+            .WithDescription("Write overview, activity, authors and hotspots to one HTML file.")
+            .WithExample("report", "--html", "report.html")
+            .WithExample("report", "--html", "report.html", "--since", "2026-01-01", "--force");
+
+        config.AddCommand<Interactive.WatchCommand>("watch")
+            .WithDescription("Live overview that refreshes when new commits arrive (q quits, r refreshes).")
+            .WithExample("watch")
+            .WithExample("watch", "--interval", "5");
+
         config.AddCommand<HeatmapCommand>("heatmap")
             .WithDescription("Activity heatmap of the last year, plus commits by weekday and time of day.")
             .WithExample("heatmap", "--path", "../other-repo");

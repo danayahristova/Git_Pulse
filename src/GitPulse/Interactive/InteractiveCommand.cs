@@ -64,6 +64,7 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
 
         private readonly IAnsiConsole _console;
         private readonly string _path;
+        private readonly bool _useCache;
         private readonly CancellationToken _cancellationToken;
 
         private ScanFilter _filter;
@@ -77,10 +78,11 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
         {
             _console = console;
             _path = settings.Path;
+            _useCache = !settings.NoCache;
             _cancellationToken = cancellationToken;
             _top = settings.Top;
             _filter = settings.ToFilter();
-            _snapshot = ScanDisplay.Scan(console, _path, _filter, cancellationToken);
+            _snapshot = ScanDisplay.Scan(console, _path, _filter, _useCache, cancellationToken).Snapshot;
             Stats = RepoAnalyzer.Analyze(_snapshot);
         }
 
@@ -162,7 +164,7 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
                     MenuItem.Hotspots => "Most-changed files",
                     MenuItem.Activity => "Activity heatmap",
                     MenuItem.CommitDetails => "Commit details…",
-                    MenuItem.FilterAuthors => "Filter by author…" + Count(_filter.AuthorList.Count),
+                    MenuItem.FilterAuthors => "Filter by author…" + Count(_filter.AuthorList.Count + _filter.ExactAuthorList.Count),
                     MenuItem.FilterBranches => "Filter by branch…" + Count(_filter.BranchList.Count),
                     MenuItem.DateRange => "Date range…" + (_filter.Since is null && _filter.Until is null ? string.Empty : Theme.Dim(" (set)")),
                     MenuItem.ClearFilters => "Clear filters",
@@ -193,7 +195,7 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
             try
             {
                 var snapshot = rescan
-                    ? ScanDisplay.Scan(_console, _path, filter, _cancellationToken)
+                    ? ScanDisplay.Scan(_console, _path, filter, _useCache, _cancellationToken).Snapshot
                     : _snapshot with { Filter = filter };
                 var stats = RepoAnalyzer.Analyze(snapshot);
 
@@ -245,15 +247,16 @@ internal sealed class InteractiveCommand(IAnsiConsole console) : Command<RepoSet
                 .UseConverter(a => $"{Markup.Escape(a.Name)} {Theme.Dim($"<{a.Email}> · {Format.Plural(a.Commits, "commit")}")}")
                 .AddChoices(everyone);
 
-            foreach (var author in everyone.Where(a => _filter.AuthorList.Contains(Key(a), StringComparer.OrdinalIgnoreCase)))
+            foreach (var author in everyone.Where(a => _filter.ExactAuthorList.Contains(Key(a), StringComparer.OrdinalIgnoreCase)))
             {
                 prompt.Select(author);
             }
 
             var chosen = _console.Prompt(prompt).Select(Key).ToList();
-            Apply(_filter with { Authors = chosen.Count == 0 ? null : chosen });
+            // Ticked authors match exactly (a typed --author keeps matching by "contains").
+            Apply(_filter with { ExactAuthors = chosen.Count == 0 ? null : chosen });
 
-            static string Key(AuthorStats a) => string.IsNullOrWhiteSpace(a.Email) ? a.Name : a.Email;
+            static string Key(AuthorStats a) => ScanFilter.AuthorKey(a.Name, a.Email);
         }
 
         private void FilterBranches()
