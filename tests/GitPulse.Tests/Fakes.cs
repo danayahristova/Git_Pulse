@@ -58,9 +58,9 @@ internal static class Fakes
         [
             new("src/Core/Engine/Scheduler.cs", 188, 9012, 7310),
             new("src/Core/Engine/RenderPipeline.cs", 140, 6200, 4100),
-            new("README.md", 97, 1200, 640),
-            new("src/Cli/Commands/Very/Deeply/Nested/Folder/Structure/OverviewCommand.cs", 63, 2100, 900),
             new("tests/Core.Tests/SchedulerTests.cs", 58, 3100, 1500),
+            new("src/Cli/Commands/Very/Deeply/Nested/Folder/Structure/OverviewCommand.cs", 63, 2100, 900),
+            new("README.md", 97, 1200, 640),
             new("[docs]/guide.md", 12, 300, 20),
         ],
         Languages:

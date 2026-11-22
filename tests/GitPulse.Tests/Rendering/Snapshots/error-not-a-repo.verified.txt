@@ -1,0 +1,5 @@
+┌─Not a Git repository─────────────────────────────────────────────────┐
+│ '/tmp/nowhere' is not inside a Git repository.                       │
+│                                                                      │
+│ Run gitpulse inside a repository, or point at one with --path <dir>. │
+└──────────────────────────────────────────────────────────────────────┘
