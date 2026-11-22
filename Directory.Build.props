@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <!--
+    WSL building the Windows checkout (/mnt/<drive>/...): keep its bin/obj separate so
+    Windows (Visual Studio) and WSL restores don't overwrite each other's absolute paths.
+    Output goes to artifacts-wsl/bin/<project>/debug/ etc. CI and native Linux are unaffected.
+  -->
+  <PropertyGroup Condition="'$(OS)' != 'Windows_NT' And $(MSBuildThisFileDirectory.StartsWith('/mnt/'))">
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+    <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts-wsl</ArtifactsPath>
+  </PropertyGroup>
+</Project>
