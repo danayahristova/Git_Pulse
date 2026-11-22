@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Phase 0 and Milestones 1–3 are merged into `main`. Milestone 4 (cache, watch, HTML report, performance) is in progress on `feature/milestone-4`. The work follows the planning docs, which are the source of truth for scope and sequencing:
+Phase 0 and Milestones 1–4 are merged into `main`. Milestone 5 (release: dotnet tool package, docs, 1.0.0) is in progress on `feature/milestone-5`. Releasing (tag, NuGet) is the user's decision; see `docs/release-checklist.md`. The work follows the planning docs, which are the source of truth for scope and sequencing:
 
 - `SCOPE.md`: vision, full command list, Spectre.Console feature coverage matrix, constraints, risks
 - `MVP.md`: the Milestone 1 feature set and acceptance criteria
@@ -94,3 +94,10 @@ Types in `src/GitPulse` are `internal`. The test project gets access through `In
 - **Parallel first scans**: `RepositoryScanner` diffs uncached commits with up to 8 workers, each with **its own** `RepositoryReader`, because LibGit2Sharp's `Repository` is not thread-safe. `IScanProgress.Advanced` is then called from several threads.
 - **`watch`** (`Interactive/WatchCommand.cs`): `WatchSession` takes an `IChangeSignal` and a rescan function, so tests drive it with fake keys and signals. Inside `Live`, read keys with `console.Input.IsKeyAvailable()`/`ReadKey`; never use prompts. Scan with `ScanDisplay.ScanQuietly` (no `Progress`, which can't run inside `Live`).
 - **HTML export**: never use `Recorder.ExportHtml()` for repo text. It doesn't HTML-escape. Use `HtmlReport.Record`, which uses `SafeHtmlEncoder`. Regenerate the committed sample with `GITPULSE_WRITE_SAMPLE_REPORT=$PWD/docs/sample-report.html dotnet test -- --filter-method "*Writes_the_sample_report*"`.
+
+## Release notes
+
+- The version lives in `src/GitPulse/GitPulse.csproj` (`<Version>`). `gitpulse --version` reads it, and `CHANGELOG.md` needs a matching section.
+- Package: `dotnet pack src/GitPulse -c Release -o artifacts/packages` (`artifacts/` is git-ignored). CI installs and runs the packed tool on both OSes.
+- `--no-color` is declared on `GlobalSettings` (the base of every settings class) but applied in `Program`/`GitPulseApp.CreateConsole`, before parsing.
+- Never tag, publish to NuGet or create GitHub releases without the user asking. They are public and effectively permanent.
